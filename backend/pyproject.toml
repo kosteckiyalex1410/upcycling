@@ -1,0 +1,62 @@
+[project]
+name = "upcycling-backend"
+version = "0.1.0"
+description = "AI Fashion Upcycling Assistant — API and worker (modular monolith)"
+requires-python = ">=3.13,<3.14"
+dependencies = [
+    "fastapi>=0.162,<0.163",
+    "pydantic[email]>=2.14,<3",
+    "pydantic-settings>=2.16,<3",
+    "sqlalchemy[asyncio]>=2.1,<2.2",
+    "psycopg[binary]>=3.3,<4",
+    "alembic>=1.20,<2",
+    "uvicorn[standard]>=0.54,<0.55",
+    "aiosmtplib>=5.1,<6",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.2,<10",
+    "pytest-asyncio>=1.4,<2",
+    "httpx>=0.28,<0.29",
+    "ruff>=0.17,<0.18",
+    "mypy>=2.4,<3",
+]
+
+[tool.uv]
+package = false
+required-version = ">=0.9"
+
+[tool.ruff]
+target-version = "py313"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "S", "ASYNC", "SIM", "RUF", "PL", "N"]
+# N818: error class names mirror API error codes (e.g. `RateLimited` -> `rate_limited`).
+ignore = ["PLR0913", "PLR2004", "N818"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "S105", "S106", "PLR2004", "PLR0917"]
+# FastAPI route handlers receive injected dependencies as parameters.
+"app/api/**" = ["PLR0917"]
+"migrations/**" = ["N999"]
+
+[tool.mypy]
+python_version = "3.13"
+strict = true
+plugins = ["pydantic.mypy"]
+files = ["app", "scripts", "tests"]
+
+[[tool.mypy.overrides]]
+module = ["tests.*"]
+disallow_untyped_decorators = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"
+addopts = "-ra --strict-markers"
+filterwarnings = ["error::DeprecationWarning:app.*"]

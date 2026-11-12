@@ -1,0 +1,231 @@
+/* iPhone-first base styles. Touch targets >= 44px; respects safe areas and dark mode. */
+:root {
+  --color-bg: #f7f5f0;
+  --color-surface: #ffffff;
+  --color-text: #1d1d1b;
+  --color-muted: #5f5d57;
+  --color-primary: #1f3d36;
+  --color-primary-text: #ffffff;
+  --color-danger: #a3261b;
+  --color-border: #d8d4ca;
+  --color-alert-bg: #fbe9e7;
+  --radius: 12px;
+  --space: 16px;
+  color-scheme: light;
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+    sans-serif;
+  font-size: 17px;
+  line-height: 1.45;
+  -webkit-text-size-adjust: 100%;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-bg: #141513;
+    --color-surface: #1f201d;
+    --color-text: #f1efe9;
+    --color-muted: #b5b2a8;
+    --color-primary: #8fc9b5;
+    --color-primary-text: #10201b;
+    --color-danger: #ff8a7a;
+    --color-border: #3a3b36;
+    --color-alert-bg: #3a1f1b;
+    color-scheme: dark;
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  background: var(--color-bg);
+  color: var(--color-text);
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
+    env(safe-area-inset-left);
+}
+
+h1 {
+  font-size: 1.6rem;
+  margin: 0 0 var(--space);
+}
+
+h2 {
+  font-size: 1.2rem;
+  margin: var(--space) 0 8px;
+}
+
+.skip-link {
+  position: absolute;
+  left: -9999px;
+}
+
+.skip-link:focus {
+  left: var(--space);
+  top: var(--space);
+  background: var(--color-surface);
+  padding: 8px;
+}
+
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space);
+  padding: 12px var(--space);
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.app-header__title {
+  font-weight: 600;
+}
+
+.app-header nav {
+  display: flex;
+  gap: 4px;
+}
+
+.app-header nav a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 12px;
+  border-radius: var(--radius);
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+.app-header nav a.active {
+  background: var(--color-bg);
+  font-weight: 600;
+}
+
+.page {
+  padding: var(--space);
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.page--narrow {
+  max-width: 480px;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-weight: 500;
+}
+
+.field input {
+  min-height: 48px;
+  padding: 0 14px;
+  font-size: 17px; /* >= 16px prevents iOS zoom on focus */
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: 0 20px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.button:disabled {
+  opacity: 0.6;
+}
+
+.button--primary {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--color-primary-text);
+}
+
+.button--danger {
+  color: var(--color-danger);
+}
+
+.button--link {
+  border: none;
+  background: transparent;
+  color: var(--color-primary);
+}
+
+.hint,
+.status,
+.empty-state {
+  color: var(--color-muted);
+}
+
+.alert {
+  padding: 12px var(--space);
+  border-radius: var(--radius);
+  background: var(--color-alert-bg);
+}
+
+.alert p {
+  margin: 0 0 8px;
+}
+
+.alert p:last-child {
+  margin: 0;
+}
+
+.language-switcher {
+  margin: calc(var(--space) * 1.5) 0 0;
+  padding: 12px var(--space);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+}
+
+.choice {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+}
+
+.choice input {
+  width: 22px;
+  height: 22px;
+}
+
+.update-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 12px var(--space);
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.update-banner p {
+  flex: 1 1 100%;
+  margin: 0;
+}

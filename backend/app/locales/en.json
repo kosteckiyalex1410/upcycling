@@ -1,0 +1,6 @@
+{
+  "login_email": {
+    "subject": "Your Upcycling sign-in link",
+    "body": "Hello!\n\nTo sign in to Upcycling, open this link on the device where you requested it:\n{link}\n\nIf you are using the app installed on your Home Screen, enter this code instead:\n{code}\n\nThe link and code are valid for {minutes} min and can be used only once.\nIf you did not request this email, you can safely ignore it.\n"
+  }
+}

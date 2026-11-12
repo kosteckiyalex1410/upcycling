@@ -1,0 +1,74 @@
+{
+  "app": {
+    "name": "Upcycling",
+    "loading": "Loading…",
+    "skipToContent": "Skip to content",
+    "retry": "Try again"
+  },
+  "nav": {
+    "home": "Home",
+    "settings": "Settings",
+    "primary": "Main navigation"
+  },
+  "login": {
+    "title": "Sign in",
+    "intro": "Enter your email address and we will send you a sign-in link and code.",
+    "emailLabel": "Email address",
+    "submit": "Send sign-in link",
+    "submitting": "Sending…",
+    "checkEmailTitle": "Check your email",
+    "checkEmailBody": "If {{email}} is registered, we have sent it a sign-in email.",
+    "linkHint": "Open the link from the email on this device.",
+    "codeHint": "Using the app from your Home Screen? Enter the 6-digit code from the email.",
+    "codeLabel": "Code from the email",
+    "codeSubmit": "Sign in",
+    "codeValidity_one": "The link and code are valid for {{count}} minute.",
+    "codeValidity_other": "The link and code are valid for {{count}} minutes.",
+    "useDifferentEmail": "Use a different email"
+  },
+  "verify": {
+    "title": "Sign in with link",
+    "inProgress": "Checking your link…",
+    "missingToken": "The link is incomplete. Copy the whole link from the email or request a new one.",
+    "backToLogin": "Back to sign in"
+  },
+  "home": {
+    "title": "My projects",
+    "greeting": "Signed in as {{email}}.",
+    "emptyState": "Your garment projects will appear here."
+  },
+  "settings": {
+    "title": "Settings",
+    "language": "Interface language",
+    "languageSaveFailed": "Could not save the language. Please try again.",
+    "account": "Account",
+    "signOut": "Sign out",
+    "signOutEverywhere": "Sign out on all devices",
+    "signOutEverywhereHint": "Ends every active session, including this device."
+  },
+  "languages": {
+    "uk": "Українська",
+    "en": "English"
+  },
+  "update": {
+    "available": "A new version of the app is available.",
+    "reload": "Update",
+    "dismiss": "Later"
+  },
+  "notFound": {
+    "title": "Page not found",
+    "home": "Go home"
+  },
+  "errors": {
+    "unauthenticated": "Your session has ended. Please sign in again.",
+    "invalid_login_token": "This link is invalid, expired or already used. Request a new one.",
+    "invalid_login_code": "This code is invalid, expired or already used.",
+    "rate_limited": "Too many attempts. Please try again later.",
+    "validation_failed": "Please check what you entered.",
+    "origin_not_allowed": "The request was blocked for security reasons. Reload the page.",
+    "network_error": "Cannot reach the server. Check your connection and try again.",
+    "not_found": "Not found.",
+    "internal_error": "Something went wrong on the server. Please try again later.",
+    "unknown": "Something went wrong. Please try again."
+  }
+}
