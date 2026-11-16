@@ -4,7 +4,7 @@ import io
 import uuid
 
 import pytest
-from PIL import Image
+from PIL import Image, ImageCms
 
 from app.domain.media import RejectionReason, all_keys, original_key, staging_key
 from app.infrastructure.images import (
@@ -52,6 +52,23 @@ def test_jpeg_orientation_is_applied_to_dimensions_and_copies() -> None:
         image = Image.open(io.BytesIO(jpeg))
         assert image.size == (48, 64)
         assert len(image.getexif()) == 0
+
+
+def test_display_copies_carry_no_metadata_of_any_kind() -> None:
+    exif = Image.Exif()
+    exif[0x8825] = {1: "N", 2: (50.0, 27.0, 0.0)}  # GPS IFD
+    xmp = b'<x:xmpmeta xmlns:x="adobe:ns:meta/">GPSLatitude="50,27N"</x:xmpmeta>'
+    icc = ImageCms.ImageCmsProfile(ImageCms.createProfile("sRGB")).tobytes()
+    out = io.BytesIO()
+    Image.new("RGB", (40, 30), (1, 2, 3)).save(
+        out, "JPEG", exif=exif.tobytes(), xmp=xmp, icc_profile=icc, comment=b"owner: Jane"
+    )
+    result = _process(out.getvalue())
+    for jpeg in (result.preview_jpeg, result.thumbnail_jpeg):
+        image = Image.open(io.BytesIO(jpeg))
+        assert len(image.getexif()) == 0
+        assert not {"exif", "xmp", "icc_profile", "comment"} & set(image.info)
+        assert b"Jane" not in jpeg and b"GPS" not in jpeg
 
 
 def test_large_images_are_downscaled_for_display() -> None:

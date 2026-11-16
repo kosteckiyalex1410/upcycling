@@ -60,6 +60,9 @@ def sniff_content_type(head: bytes) -> str | None:
 
 def _render(image: Image.Image, max_side: int) -> bytes:
     copy = image.copy()
+    # Pillow re-emits some metadata from `info` by default (e.g. the JPEG comment);
+    # display copies must carry none of the original's metadata.
+    copy.info.clear()
     copy.thumbnail((max_side, max_side), Image.Resampling.LANCZOS)
     out = io.BytesIO()
     copy.save(out, format="JPEG", quality=_JPEG_QUALITY, optimize=True)
