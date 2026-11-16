@@ -1,7 +1,7 @@
 # AI Fashion Upcycling Assistant — System Architecture
 
-**Version:** 0.2  
-**Status:** Slice 0 decisions recorded (see `docs/adr/`)  
+**Version:** 0.3  
+**Status:** Slice 0–1 decisions recorded (see `docs/adr/`)  
 **Product baseline:** PRODUCT.md v0.2  
 **Documentation language:** English  
 **Initial UI locales:** `uk`, `en`  
@@ -58,7 +58,7 @@ Use **one deployable backend codebase** with API and worker processes. Start wit
 | Localization | i18next + react-i18next; JSON locale resources | `uk` (default), `en`; stable language-neutral IDs |
 | Backend | Python 3.13, FastAPI, Pydantic v2, uv | OpenAPI as the public contract ([ADR-0004](docs/adr/0004-api-contract-and-client-generation.md)) |
 | Persistence | PostgreSQL 18, SQLAlchemy 2.1 (async, psycopg 3), Alembic | Versioned migrations; JSONB only for evolving model-specific attributes; `uuidv7()` keys |
-| Binary media | Private S3-compatible object storage | Signed upload/download URLs; no public buckets |
+| Binary media | Private S3-compatible object storage; SeaweedFS locally; Pillow + `pi-heif` for verification and previews ([ADR-0006](docs/adr/0006-garment-photo-storage-and-presigned-uploads.md)) | Presigned uploads; reads through authenticated API endpoints; provider undecided; no public buckets |
 | AI inference | External multimodal API via adapters | Later task-specific hosted models |
 | Speech | Server-side speech-to-text adapter | Preserve source audio and transcript |
 | Jobs | PostgreSQL-backed jobs + worker | Replace with queue/broker if needed |
@@ -122,8 +122,8 @@ Create folders when needed by a vertical slice; do not generate empty abstractio
 | `users` | id, email, preferred_locale, is_active, created_at, updated_at | Single initial user, future multi-user ready; created via CLI, no sign-up |
 | `login_challenges` | id, user_id nullable, email_hash, requester_ip_hash, token_hash, code_hash, failed_attempts, expires_at, consumed_at, created_at | Single-use email login; also the rate-limit ledger (ADR-0003) |
 | `auth_sessions` | id, user_id, token_hash, auth_method, created_at, expires_at, revoked_at | Server-side sessions; only token hashes stored |
-| `garments` | id, owner_id, title, status, created_at, updated_at | Root project aggregate |
-| `media_assets` | id, garment_id, role, storage_key, mime_type, checksum, created_at | Roles: original, detail, defect, label, after, audio |
+| `garments` | id, owner_id, client_request_id, title, notes, created_at, updated_at, deleted_at | Root project aggregate. `status` is added when analysis needs it (Slice 2) |
+| `media_assets` | id, garment_id, owner_id, client_upload_id, category, status, error_code, original_filename, declared_{content_type,size_bytes,sha256}, content_type, size_bytes, sha256, width, height, exif_orientation, original_key, preview_key, thumbnail_key, created_at, updated_at, completed_at, deleted_at | One original photo ([ADR-0006](docs/adr/0006-garment-photo-storage-and-presigned-uploads.md)). `category`: front, back, detail, fabric, defect, label. `status`: pending → ready \| rejected. Content fields are immutable once ready. Later slices add `kind` (image/audio) and `stage` (before/after) columns instead of overloading `category` |
 | `analysis_runs` | id, garment_id, status, schema_version, model_id, prompt_version, raw_output_key, structured_output, created_at | Immutable completed outputs |
 | `recommendations` | id, analysis_run_id, operation_code, target, rationale, risk, feasibility, created_at | Stable per-suggestion IDs |
 | `conversations` | id, garment_id, created_at | Conversation scoped to a garment |
@@ -160,11 +160,13 @@ Authentication is required for all project and media endpoints. All non-2xx resp
 | `POST` | `/auth/login-requests/{id}/verify-code` | Exchange one-time code for a session cookie (installed PWA) |
 | `POST` | `/auth/logout`, `/auth/sessions/revoke-all` | Revoke current session / all sessions |
 | `GET`/`PATCH` | `/me` | Current user profile and `preferred_locale` |
-| `POST` | `/garments` | Create garment project |
-| `GET` | `/garments` | List current user's projects |
-| `GET` | `/garments/{id}` | Fetch project summary |
-| `POST` | `/garments/{id}/media/uploads` | Request a short-lived signed upload |
-| `POST` | `/garments/{id}/media/complete` | Validate uploaded object and register media |
+| `POST` | `/garments` | Create garment project (idempotent on `client_request_id`) |
+| `GET` | `/garments` | List current user's projects (newest first, cursor pagination, photo count, cover) |
+| `GET`/`PATCH`/`DELETE` | `/garments/{id}` | Project with its photos / update title and notes / delete permanently |
+| `POST` | `/garments/{id}/media/uploads` | Register a photo and get a short-lived presigned PUT (idempotent on `client_upload_id`) |
+| `POST` | `/garments/{id}/media/complete` | Verify the uploaded object and mark the photo ready or rejected |
+| `PATCH`/`DELETE` | `/media/{id}` | Change a photo's category / delete it permanently |
+| `GET` | `/media/{id}/thumbnail`, `/preview`, `/original` | Owner-only bytes: JPEG display copies (no metadata) and the untouched original |
 | `POST` | `/garments/{id}/analyses` | Queue analysis, return job ID |
 | `GET` | `/jobs/{id}` | Poll async status and result reference |
 | `GET` | `/garments/{id}/analyses` | List immutable analysis runs |
@@ -379,11 +381,11 @@ Avoid browser globals in domain/application logic. This makes Capacitor adapters
 
 ## 12. Open decisions (not blockers for documenting the design)
 
-1. Hosting provider and S3-compatible storage provider. *Constrained by [ADR-0005](docs/adr/0005-same-origin-deployment-topology.md): must support same-origin routing of PWA and `/api`.*
+1. Hosting provider and S3-compatible storage provider. *Constrained by [ADR-0005](docs/adr/0005-same-origin-deployment-topology.md): must support same-origin routing of PWA and `/api`; storage must meet the provider requirements in [ADR-0006](docs/adr/0006-garment-photo-storage-and-presigned-uploads.md) (HTTPS endpoint reachable from the iPhone, bucket CORS, signed checksums).*
 2. ~~Initial identity mechanism~~ — **resolved** by [ADR-0003](docs/adr/0003-authentication-email-magic-link.md). Still open: production email (SMTP) provider.
 3. Initial VLM and speech providers, chosen after quality/cost tests.
 4. Whether reliable offline photo capture is a hard requirement; if yes, revisit native-first strategy.
-5. Data retention period, training permissions and deletion semantics.
+5. Data retention period, training permissions and deletion semantics. *Interim rule ([ADR-0006](docs/adr/0006-garment-photo-storage-and-presigned-uploads.md)): expert deletion is permanent for rows and objects.*
 6. Exact annotation schema for defect geometry and fabric taxonomy after first expert trials.
 
 Do not let Claude Code silently resolve these with arbitrary permanent dependencies. Record chosen options in `docs/adr/` before implementation.

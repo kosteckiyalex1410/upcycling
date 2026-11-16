@@ -132,7 +132,7 @@ Create an ADR under `docs/adr/` for decisions that change a durable system bound
 - Consequences, risks, and reversibility.
 - Date and status (`proposed`, `accepted`, or `superseded`).
 
-**Open decisions — do not silently lock in:** hosting/object storage provider; production email provider; initial VLM/speech providers; hard offline requirement; data retention and training consent; defect geometry and fabric taxonomy. See `ARCHITECTURE.md` §12. Authentication is decided in ADR-0003.
+**Open decisions — do not silently lock in:** hosting/object storage provider; production email provider; initial VLM/speech providers; hard offline requirement; data retention and training consent; defect geometry and fabric taxonomy. See `ARCHITECTURE.md` §12. Authentication is decided in ADR-0003; the photo upload/storage protocol (provider-independent) in ADR-0006.
 
 ## 9. Delivery order and definition of done
 
