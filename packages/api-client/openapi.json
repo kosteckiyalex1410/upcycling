@@ -1,6 +1,113 @@
 {
   "components": {
     "schemas": {
+      "CompleteUploadRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "media_id": {
+            "format": "uuid",
+            "title": "Media Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "media_id"
+        ],
+        "title": "CompleteUploadRequest",
+        "type": "object"
+      },
+      "CreateGarmentRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "client_request_id": {
+            "description": "Idempotency key; retries reuse it.",
+            "format": "uuid",
+            "title": "Client Request Id",
+            "type": "string"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "maxLength": 4000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "required": [
+          "client_request_id"
+        ],
+        "title": "CreateGarmentRequest",
+        "type": "object"
+      },
+      "CreateUploadRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "category": {
+            "$ref": "#/components/schemas/MediaCategory"
+          },
+          "client_upload_id": {
+            "description": "Idempotency key; retries reuse it.",
+            "format": "uuid",
+            "title": "Client Upload Id",
+            "type": "string"
+          },
+          "content_type": {
+            "description": "image/jpeg, image/png, image/heic…",
+            "maxLength": 100,
+            "title": "Content Type",
+            "type": "string"
+          },
+          "filename": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Filename"
+          },
+          "sha256": {
+            "description": "Lowercase hex SHA-256.",
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sha256",
+            "type": "string"
+          },
+          "size_bytes": {
+            "exclusiveMinimum": 0.0,
+            "title": "Size Bytes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "client_upload_id",
+          "category",
+          "content_type",
+          "size_bytes",
+          "sha256"
+        ],
+        "title": "CreateUploadRequest",
+        "type": "object"
+      },
       "ErrorBody": {
         "properties": {
           "code": {
@@ -85,6 +192,150 @@
         "title": "ErrorResponse",
         "type": "object"
       },
+      "Garment": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "media": {
+            "description": "Photos including pending and rejected ones.",
+            "items": {
+              "$ref": "#/components/schemas/MediaAsset"
+            },
+            "title": "Media",
+            "type": "array"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "notes",
+          "created_at",
+          "updated_at",
+          "media"
+        ],
+        "title": "Garment",
+        "type": "object"
+      },
+      "GarmentPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/GarmentSummary"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Pass as `cursor` for the next page.",
+            "title": "Next Cursor"
+          }
+        },
+        "required": [
+          "items",
+          "next_cursor"
+        ],
+        "title": "GarmentPage",
+        "type": "object"
+      },
+      "GarmentSummary": {
+        "properties": {
+          "cover_thumbnail_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cover Thumbnail Url"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "photo_count": {
+            "description": "Ready photos.",
+            "title": "Photo Count",
+            "type": "integer"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "created_at",
+          "updated_at",
+          "photo_count",
+          "cover_thumbnail_url"
+        ],
+        "title": "GarmentSummary",
+        "type": "object"
+      },
       "HealthResponse": {
         "properties": {
           "status": {
@@ -165,6 +416,237 @@
         "title": "MeResponse",
         "type": "object"
       },
+      "MediaAsset": {
+        "properties": {
+          "category": {
+            "$ref": "#/components/schemas/MediaCategory"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "content_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Detected from the bytes; set when ready.",
+            "title": "Content Type"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Set when `status` is `rejected`.",
+            "title": "Error Code"
+          },
+          "garment_id": {
+            "format": "uuid",
+            "title": "Garment Id",
+            "type": "string"
+          },
+          "height": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Height"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "original_filename": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Original Filename"
+          },
+          "original_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Original bytes as uploaded (download).",
+            "title": "Original Url"
+          },
+          "preview_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Same-origin, authenticated; ~1600 px JPEG.",
+            "title": "Preview Url"
+          },
+          "sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Hex SHA-256 of the stored original.",
+            "title": "Sha256"
+          },
+          "size_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Size Bytes"
+          },
+          "status": {
+            "$ref": "#/components/schemas/MediaStatus"
+          },
+          "thumbnail_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Same-origin, authenticated; ~400 px JPEG.",
+            "title": "Thumbnail Url"
+          },
+          "width": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Displayed width (EXIF orientation applied).",
+            "title": "Width"
+          }
+        },
+        "required": [
+          "id",
+          "garment_id",
+          "category",
+          "status",
+          "error_code",
+          "original_filename",
+          "content_type",
+          "size_bytes",
+          "sha256",
+          "width",
+          "height",
+          "created_at",
+          "completed_at",
+          "thumbnail_url",
+          "preview_url",
+          "original_url"
+        ],
+        "title": "MediaAsset",
+        "type": "object"
+      },
+      "MediaCategory": {
+        "description": "What the photo shows. Stable, language-neutral values (persisted and in the API).",
+        "enum": [
+          "front",
+          "back",
+          "detail",
+          "fabric",
+          "defect",
+          "label"
+        ],
+        "title": "MediaCategory",
+        "type": "string"
+      },
+      "MediaStatus": {
+        "enum": [
+          "pending",
+          "ready",
+          "rejected"
+        ],
+        "title": "MediaStatus",
+        "type": "string"
+      },
+      "PresignedUpload": {
+        "properties": {
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "headers": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Send exactly these headers with the body.",
+            "title": "Headers",
+            "type": "object"
+          },
+          "method": {
+            "const": "PUT",
+            "default": "PUT",
+            "title": "Method",
+            "type": "string"
+          },
+          "url": {
+            "description": "Short-lived URL on the object storage origin.",
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url",
+          "headers",
+          "expires_at"
+        ],
+        "title": "PresignedUpload",
+        "type": "object"
+      },
       "ReadinessResponse": {
         "properties": {
           "status": {
@@ -175,6 +657,38 @@
           }
         },
         "title": "ReadinessResponse",
+        "type": "object"
+      },
+      "UpdateGarmentRequest": {
+        "additionalProperties": false,
+        "description": "Only fields present are changed; `null` clears a field.",
+        "properties": {
+          "notes": {
+            "anyOf": [
+              {
+                "maxLength": 4000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "title": "UpdateGarmentRequest",
         "type": "object"
       },
       "UpdateMeRequest": {
@@ -188,6 +702,43 @@
           "preferred_locale"
         ],
         "title": "UpdateMeRequest",
+        "type": "object"
+      },
+      "UpdateMediaRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "category": {
+            "$ref": "#/components/schemas/MediaCategory"
+          }
+        },
+        "required": [
+          "category"
+        ],
+        "title": "UpdateMediaRequest",
+        "type": "object"
+      },
+      "UploadTicketResponse": {
+        "properties": {
+          "media": {
+            "$ref": "#/components/schemas/MediaAsset"
+          },
+          "upload": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PresignedUpload"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Null once the photo is not pending."
+          }
+        },
+        "required": [
+          "media",
+          "upload"
+        ],
+        "title": "UploadTicketResponse",
         "type": "object"
       },
       "VerifyCodeRequest": {
@@ -415,6 +966,353 @@
         ]
       }
     },
+    "/api/v1/garments": {
+      "get": {
+        "operationId": "list_garments",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 30,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GarmentPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Error (see `error.code`)."
+          }
+        },
+        "summary": "List Garments",
+        "tags": [
+          "garments"
+        ]
+      },
+      "post": {
+        "operationId": "create_garment",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateGarmentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Garment"
+                }
+              }
+            },
+            "description": "Replay of an earlier create."
+          },
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Garment"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Error (see `error.code`)."
+          }
+        },
+        "summary": "Create Garment",
+        "tags": [
+          "garments"
+        ]
+      }
+    },
+    "/api/v1/garments/{garment_id}": {
+      "delete": {
+        "operationId": "delete_garment",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "garment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Garment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Error (see `error.code`)."
+          }
+        },
+        "summary": "Delete Garment",
+        "tags": [
+          "garments"
+        ]
+      },
+      "get": {
+        "operationId": "get_garment",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "garment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Garment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Garment"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Error (see `error.code`)."
+          }
+        },
+        "summary": "Get Garment",
+        "tags": [
+          "garments"
+        ]
+      },
+      "patch": {
+        "operationId": "update_garment",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "garment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Garment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateGarmentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Garment"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Error (see `error.code`)."
+          }
+        },
+        "summary": "Update Garment",
+        "tags": [
+          "garments"
+        ]
+      }
+    },
+    "/api/v1/garments/{garment_id}/media/complete": {
+      "post": {
+        "description": "Verify the uploaded bytes and register the photo. Returns it as `ready` or `rejected`\n(with `error_code`); `upload_incomplete` (409) if the bytes have not arrived yet.\nSafe to repeat.",
+        "operationId": "complete_media_upload",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "garment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Garment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompleteUploadRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaAsset"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Error (see `error.code`)."
+          }
+        },
+        "summary": "Complete Media Upload",
+        "tags": [
+          "garments"
+        ]
+      }
+    },
+    "/api/v1/garments/{garment_id}/media/uploads": {
+      "post": {
+        "description": "Register a photo and get a presigned PUT for its bytes. Calling again with the same\n`client_upload_id` returns the same photo with a fresh URL while it is pending.",
+        "operationId": "create_media_upload",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "garment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Garment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateUploadRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadTicketResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Error (see `error.code`)."
+          }
+        },
+        "summary": "Create Media Upload",
+        "tags": [
+          "garments"
+        ]
+      }
+    },
     "/api/v1/health": {
       "get": {
         "description": "Liveness: the process is serving requests. Does not touch the database.",
@@ -546,6 +1444,222 @@
         "summary": "Update Me",
         "tags": [
           "me"
+        ]
+      }
+    },
+    "/api/v1/media/{media_id}": {
+      "delete": {
+        "operationId": "delete_media",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "media_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Media Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Error (see `error.code`)."
+          }
+        },
+        "summary": "Delete Media",
+        "tags": [
+          "garments"
+        ]
+      },
+      "patch": {
+        "operationId": "update_media",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "media_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Media Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateMediaRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaAsset"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Error (see `error.code`)."
+          }
+        },
+        "summary": "Update Media",
+        "tags": [
+          "garments"
+        ]
+      }
+    },
+    "/api/v1/media/{media_id}/original": {
+      "get": {
+        "description": "Original bytes exactly as uploaded (may contain EXIF/GPS metadata), as a download.",
+        "operationId": "get_media_original",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "media_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Media Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "image/*": {}
+            },
+            "description": "Image bytes."
+          },
+          "304": {
+            "description": "Not modified (matching `If-None-Match`)."
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Error (see `error.code`)."
+          }
+        },
+        "summary": "Get Media Original",
+        "tags": [
+          "garments"
+        ]
+      }
+    },
+    "/api/v1/media/{media_id}/preview": {
+      "get": {
+        "description": "~1600 px JPEG, orientation applied, all metadata removed.",
+        "operationId": "get_media_preview",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "media_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Media Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "image/*": {}
+            },
+            "description": "Image bytes."
+          },
+          "304": {
+            "description": "Not modified (matching `If-None-Match`)."
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Error (see `error.code`)."
+          }
+        },
+        "summary": "Get Media Preview",
+        "tags": [
+          "garments"
+        ]
+      }
+    },
+    "/api/v1/media/{media_id}/thumbnail": {
+      "get": {
+        "description": "~400 px JPEG, orientation applied, all metadata removed.",
+        "operationId": "get_media_thumbnail",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "media_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Media Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "image/*": {}
+            },
+            "description": "Image bytes."
+          },
+          "304": {
+            "description": "Not modified (matching `If-None-Match`)."
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Error (see `error.code`)."
+          }
+        },
+        "summary": "Get Media Thumbnail",
+        "tags": [
+          "garments"
         ]
       }
     }
