@@ -2,7 +2,7 @@
 
 An iPhone-first expert application that analyzes garments, proposes feasible transformations, and records expert feedback as evidence for future model evaluation.
 
-**Status:** Slice 0 (foundation) — authentication, localization (`uk`/`en`), API contract and quality gates. No garment features yet.
+**Status:** Slice 1 — garment projects and original photo capture (camera/library, JPEG/PNG/HEIC, presigned uploads to S3-compatible storage, previews, retry, safe deletion) on top of the Slice 0 foundation (authentication, `uk`/`en`, API contract, quality gates). No AI analysis yet.
 
 | Document | Purpose |
 |---|---|
@@ -19,15 +19,15 @@ An iPhone-first expert application that analyzes garments, proposes feasible tra
 backend/                 FastAPI modular monolith (Python 3.13, uv)
   app/api/v1/            HTTP routing and validation
   app/domain/            Domain concepts and invariants
-  app/application/       Use cases (auth, users) and ports
-  app/infrastructure/    PostgreSQL, SMTP, logging
+  app/application/       Use cases (auth, users, garments/photos) and ports
+  app/infrastructure/    PostgreSQL, SMTP, S3 storage, image processing, logging
   app/locales/           Server-generated text (emails) in uk/en
   migrations/            Alembic migrations
 packages/api-client/     TypeScript client generated from OpenAPI (committed)
 apps/expert-pwa/         React + Vite PWA (Node.js 24, pnpm)
 docs/adr/                Architecture decision records
-scripts/                 Contract drift check, Docker smoke test
-compose.yaml             Local PostgreSQL 18 + Mailpit
+scripts/                 Contract drift check, Docker smoke test, CI storage start-up
+compose.yaml             Local PostgreSQL 18, Mailpit, SeaweedFS (S3-compatible storage)
 ```
 
 ## Quick start
@@ -35,7 +35,7 @@ compose.yaml             Local PostgreSQL 18 + Mailpit
 ```bash
 cp .env.example .env
 make setup            # uv sync + pnpm install
-make services-up      # PostgreSQL :55432, Mailpit :1025 / UI :8025
+make services-up      # PostgreSQL :55432, Mailpit :1025 / UI :8025, storage :8333
 make migrate
 make seed-user EMAIL=you@example.com
 make dev-api          # terminal 1 — http://localhost:8000/api/v1/docs

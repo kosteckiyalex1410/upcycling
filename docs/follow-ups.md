@@ -1,6 +1,6 @@
 # Security and operational follow-ups
 
-Known gaps after Slice 0. None blocks local development or the expert MVP slices; items marked
+Known gaps after Slice 1. None blocks local development or the expert MVP slices; items marked
 **before production** must be resolved before real expert data or a public deployment.
 Convert items into GitHub issues when they are scheduled.
 
@@ -10,10 +10,13 @@ Convert items into GitHub issues when they are scheduled.
 |---|---|---|---|
 | F1 | Email | Choose the production SMTP provider (ADR needed); configure SPF/DKIM/DMARC for the sender domain | Login depends on deliverability; production config already refuses to start without explicit SMTP host/sender and TLS |
 | F2 | Hosting | Choose hosting and reverse proxy (open decision 1) honouring ADR-0005; set `UPCYCLING_FORWARDED_ALLOW_IPS` to the proxy address only | Per-IP rate limits and logs rely on correct client IPs |
-| F3 | Headers | Serve the PWA with a strict Content-Security-Policy, `Strict-Transport-Security`, `Referrer-Policy: no-referrer`, `Permissions-Policy` | API responses already send `nosniff`, `no-referrer`, `DENY`, `no-store`; the static host is not configured yet |
+| F3 | Headers | Serve the PWA with a strict Content-Security-Policy (`connect-src` must include the storage origin for uploads, ADR-0006), `Strict-Transport-Security`, `Referrer-Policy: no-referrer`, `Permissions-Policy` (allow `camera` for self) | API responses already send `nosniff`, `no-referrer`, `DENY`, `no-store`; the static host is not configured yet |
 | F4 | Secrets | Store `UPCYCLING_SECRET_KEY`, database and SMTP credentials in the platform secret manager; document rotation (rotating the key invalidates pending login codes and resets rate-limit digests, not sessions) | Secrets are environment-only; rotation procedure is undocumented |
 | F5 | Data | Backups and restore test for PostgreSQL; define retention/deletion (open decision 5) | Required by ARCHITECTURE.md §10 before external users |
-| F6 | Real device | Manual iPhone Safari + installed-PWA verification of sign-in (link and code), install, update prompt, safe areas | Only WebKit emulation has been tested |
+| F6 | Real device | Manual iPhone Safari + installed-PWA verification of sign-in (link and code), install, update prompt, safe areas, and the Slice 1 photo checklist in `docs/development.md` (camera, library multi-select, HEIC kept or converted, interrupted uploads) | Only WebKit emulation has been tested |
+| F20 | Storage | Choose the production S3-compatible provider with hosting (open decision 1); verify it enforces signed `Content-Length` and `x-amz-checksum-sha256` on presigned PUTs; private bucket, bucket-scoped credential, CORS rule, versioning off/purge rules; EU region if data residency is required | ADR-0006 provider requirements |
+| F21 | Privacy | Decide the policy for location (GPS) metadata in originals and photo retention/training consent (open decision 5). Originals keep EXIF/GPS and are owner-only; previews strip it | Required before external experts or dataset exports |
+| F22 | Operations | Schedule `storage-sweep` (cron until the Slice 2 worker runs it); alert on `garment_purge_deferred`, `media_purge_deferred`, `media_object_missing`, `storage_unavailable` | Deferred deletions and orphan cleanup only run when the sweep runs |
 
 ## Hardening (schedule within the next slices)
 
@@ -22,7 +25,7 @@ Convert items into GitHub issues when they are scheduled.
 | F7 | Auth data | Periodic job to delete expired/consumed `login_challenges` (e.g. older than the rate-limit window + 1 day) and expired/revoked `auth_sessions` | Tables grow without bound; also minimizes retained data. Natural fit once the Slice 2 worker exists |
 | F8 | Sessions | Add an idle timeout and/or sliding renewal (currently absolute 30 days); record `last_seen_at` | Limits the value of a stolen cookie |
 | F9 | Sessions | Session list in Settings ("signed-in devices") with per-session revocation | Today only "sign out" and "sign out everywhere" exist |
-| F10 | Rate limiting | Add a limit on verification attempts per IP across challenges, and per-IP limits on authenticated write endpoints as they are added | Code guessing is limited per challenge (5) and by login-request limits, not per IP globally |
+| F10 | Rate limiting | Add a limit on verification attempts per IP across challenges, and per-user/IP rate limits on authenticated write endpoints (garment creation, upload tickets; today only count caps apply: 40 photos/garment, 20 unfinished uploads/user) | Code guessing is limited per challenge (5) and by login-request limits, not per IP globally |
 | F11 | Auth | Passkeys as an additional login method (ADR-0003 extension point) | Stronger than email possession |
 | F12 | Timing | Make `POST /auth/login-requests` timing independent of whether the email exists (constant work or fixed minimum latency) | Small residual enumeration signal; responses are already identical |
 | F13 | API contract | Make the OpenAPI breaking-change check (`oasdiff`) a blocking CI gate once `main` has a baseline | Planned in ADR-0004 |
@@ -32,3 +35,6 @@ Convert items into GitHub issues when they are scheduled.
 | F17 | Container | Image vulnerability scan in CI (e.g. Trivy/Grype); read-only root filesystem and dropped capabilities in the deployment manifest | Image is non-root and minimal but unscanned |
 | F18 | Tooling | Upgrade uv (pinned 0.9.26; current 0.13.x) and TypeScript 7 when `typescript-eslint` and `openapi-typescript` support it | Keep toolchain current |
 | F19 | Branding | Replace placeholder PWA icons | Cosmetic |
+| F23 | Media | Move image verification/preview rendering to the Slice 2 job worker (and a separate process) if `complete` latency or decoder risk warrants it; consider a bucket lifecycle rule expiring `uploads/` after 1 day | Decoding untrusted HEIC/JPEG runs in the API process (size and pixel caps apply) |
+| F24 | Readiness | Include storage reachability in `/health/ready`, or a separate storage health metric | Readiness covers PostgreSQL only; storage outages surface as `storage_unavailable` (503) |
+| F25 | Uploads | Persist unsent photos locally (IndexedDB) only if open decision 4 requires offline capture; today the upload queue lives in memory and photos must be re-selected after iOS discards the page | CLAUDE.md §7: best effort only |
