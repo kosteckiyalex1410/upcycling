@@ -1,0 +1,47 @@
+# Development only: HTTPS on the Wi-Fi network so a real iPhone can use the PWA and upload
+# photos (`make iphone-up`, docs/development.md). Not a production configuration.
+#
+#   https://<mac>.local:8443  PWA production build + /api (same origin, ADR-0005)
+#   https://<mac>.local:8444  S3-compatible storage for presigned uploads (separate origin
+#                             with bucket CORS, as in production, ADR-0006)
+#
+# Certificates come from Caddy's internal CA; its root (kept in the `iphone-ca` volume)
+# must be trusted on the iPhone once.
+{
+	admin off
+	auto_https disable_redirects
+	skip_install_trust
+	# Clients send no SNI for IP addresses (UPCYCLING_LAN_HOST=<Wi-Fi IP> fallback).
+	default_sni {$UPCYCLING_LAN_HOST}
+	pki {
+		ca local {
+			name "Upcycling Development CA"
+			root_cn "Upcycling Development Root CA (local only)"
+		}
+	}
+}
+
+https://{$UPCYCLING_LAN_HOST}:8443 {
+	tls internal
+
+	handle /api/* {
+		# The iPhone API process (`make iphone-api`) listens on the Mac's loopback only.
+		reverse_proxy host.docker.internal:{$UPCYCLING_IPHONE_API_PORT}
+	}
+
+	handle {
+		root * /srv/pwa
+		@hashed path /assets/*
+		@unhashed not path /assets/*
+		header @hashed Cache-Control "public, max-age=31536000, immutable"
+		header @unhashed Cache-Control "no-cache"
+		try_files {path} /index.html
+		file_server
+	}
+}
+
+https://{$UPCYCLING_LAN_HOST}:8444 {
+	tls internal
+	# Host is passed through unchanged, so SigV4 signatures made for this origin verify.
+	reverse_proxy storage:8333
+}

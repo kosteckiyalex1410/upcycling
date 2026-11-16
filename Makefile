@@ -8,7 +8,7 @@ LOCALE ?= uk
 .PHONY: help setup services-up services-down migrate seed-user storage-init storage-sweep \
 	dev-api dev-web \
 	gen-client contract-check format lint typecheck test test-backend test-web test-e2e \
-	build docker-smoke check
+	build docker-smoke check iphone-up iphone-api iphone-check iphone-down
 
 help: ## List targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-16s %s\n", $$1, $$2}'
@@ -42,6 +42,18 @@ dev-api: ## Run the API with reload on :8000
 
 dev-web: ## Run the PWA dev server on :5173 (proxies /api)
 	$(PNPM) --filter $(PWA) dev
+
+iphone-up: ## HTTPS on the Wi-Fi for a real iPhone: build PWA, start proxy, storage CORS
+	PNPM="$(PNPM)" ./scripts/iphone.sh up
+
+iphone-api: ## Run the API for the iPhone setup (foreground, reload) on 127.0.0.1:8001
+	./scripts/iphone.sh api
+
+iphone-check: ## Check certificate, PWA, API and storage CORS of the iPhone setup
+	./scripts/iphone.sh check
+
+iphone-down: ## Stop the iPhone HTTPS proxy and restore localhost-only storage CORS
+	./scripts/iphone.sh down
 
 gen-client: ## Export OpenAPI and regenerate the TypeScript client
 	cd backend && uv run python -m scripts.export_openapi ../packages/api-client/openapi.json

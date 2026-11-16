@@ -55,7 +55,20 @@ The final status change is a compare-and-set from `pending`, so concurrent compl
 
 - Accepted: JPEG, PNG, HEIC/HEIF (HEVC still images). AVIF, GIF, SVG, video and anything whose magic bytes and decoded format disagree are rejected (`unsupported_media_type`/`invalid_image`).
 - Originals are kept byte-for-byte, **including EXIF/GPS**, visible only to the owner. Previews and thumbnails carry no metadata. Width/height are stored as displayed (orientation applied); the raw EXIF orientation is stored for future annotation geometry.
+- Review 2026-11-16: originals contain whatever the camera wrote — EXIF with GPS coordinates, capture time, device make/model (sometimes serial numbers), XMP, maker notes and comments. None of it is parsed into the database except the orientation tag; the client-supplied `original_filename` is stored as given. Display copies are rendered from decoded pixels with the image's `info` cleared, so no EXIF, GPS, XMP, ICC profile or JPEG comment is carried over (a JPEG comment previously was; fixed and covered by `test_display_copies_carry_no_metadata_of_any_kind`). Nothing is logged.
 - `pi-heif` 1.4 (Python bindings BSD-3-Clause; bundled `libheif` and `libde265` are LGPL-3.0 shared libraries, decode-only, no x265/GPL encoder).
+
+### Privacy-safe default for future dataset exports (proposed; confirm with open decision 5 before Slice 6)
+
+Until a recorded decision says otherwise, a dataset export (Slice 6) must:
+
+1. **Never contain original bytes.** Export images are produced from decoded pixels (orientation applied), like display copies, with **no metadata of any kind**: no EXIF (GPS, timestamps, device make/model/serial, lens, software), XMP, IPTC, maker notes, embedded thumbnails or comments. Colours are converted to sRGB before any ICC profile is dropped. The encoding (lossless or quality setting) is recorded per export.
+2. **Contain no location in any form**, including values derived from GPS (city, country). Exporting location requires an explicit, recorded decision and consent.
+3. **Omit `original_filename`, owner email and other account data.** Owners appear as export-specific pseudonymous IDs; the mapping stays in the database.
+4. **Coarsen time** to what an experiment needs (e.g. capture month for time-based splits), never exact capture timestamps from EXIF.
+5. **Record provenance in the immutable manifest:** the metadata policy version, media IDs, the SHA-256 of the original and of the exported file, and the export code version. An automated check fails the export if any exported file contains EXIF, XMP, ICC or comment data.
+
+Photos may also show people wearing garments, labels with names, or backgrounds; consent and redaction for image *content* are part of open decision 5 and are not solved by metadata stripping.
 
 ### Deletion (until retention policy is decided)
 

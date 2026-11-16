@@ -92,14 +92,53 @@ All user-facing strings live in `apps/expert-pwa/src/locales/{uk,en}/common.json
 
 ## Testing on a real iPhone (manual)
 
-Camera, microphone, service workers, secure cookies and WebCrypto hashing (used for uploads) require HTTPS on a device. Photo uploads also go to a **second origin** (storage), which the iPhone must reach over HTTPS too — an HTTPS page cannot PUT to `http://…:8333` (mixed content). Options:
+Camera, service workers, the Secure `__Host-` session cookie and WebCrypto hashing (used for uploads) need HTTPS on the device, and photo uploads go to a **second origin** (storage), which the iPhone must also reach over HTTPS. `make iphone-up` provides both on the local Wi-Fi only — no tunnel, no external service:
 
-- **mkcert on the LAN:** create a certificate for your machine's LAN hostname, install the mkcert root CA on the iPhone (Settings → General → About → Certificate Trust Settings), and serve Vite over HTTPS. Set `UPCYCLING_PUBLIC_ORIGIN` to that origin. For storage, put an HTTPS reverse proxy (e.g. Caddy with the same certificate) in front of `:8333` on another port, set `UPCYCLING_STORAGE_PUBLIC_ENDPOINT_URL` to it, and run `make storage-init`.
-- **A tunnel** (e.g. Cloudflare Tunnel, ngrok) for both the app and storage — this sends traffic through an external provider; use test data only.
+```
+iPhone ──HTTPS──▶ Caddy in Docker (iphone-proxy, the only container listening on the LAN)
+                    https://<mac>.local:8443  PWA production build + /api ─▶ API on 127.0.0.1:8001
+                    https://<mac>.local:8444  storage (presigned PUTs)    ─▶ SeaweedFS :8333
+```
+
+- Certificates come from Caddy's internal CA ("Upcycling Development Root CA (local only)"), kept in the `iphone-ca` Docker volume so the iPhone has to trust it **once**. Leaf certificates last 12 hours and renew automatically.
+- `<mac>.local` is this Mac's Bonjour name (`scutil --get LocalHostName`), so the URL — and an installed home-screen app — survive network changes.
+- `make iphone-api` runs a second API process with the iPhone settings (`UPCYCLING_PUBLIC_ORIGIN=https://<mac>.local:8443`, Secure `__Host-` cookie as in production, `UPCYCLING_STORAGE_PUBLIC_ENDPOINT_URL=https://<mac>.local:8444`). The regular `make dev-api`/`make dev-web` on localhost keep working alongside it; both use the same database and bucket.
+- The Origin check, cookie flags, private bucket and authenticated photo reads are unchanged. Storage CORS allows `PUT` from `https://<mac>.local:8443` and `http://localhost:5173` only; storage still enforces the signed type, length and checksum.
+- The app is the **production build** with its service worker (`apps/expert-pwa/dist`). After changing frontend code, run `make iphone-up` again (no hot reload); backend changes reload automatically.
+
+### On the Mac
+
+1. `make services-up && make migrate`, and `make seed-user EMAIL=you@example.com` if the account does not exist yet.
+2. `make iphone-up` — builds the PWA, starts the proxy, allows the origin in storage CORS, exports the root certificate to `.dev-iphone/upcycling-dev-root.crt` (git-ignored) and prints the URL and the certificate fingerprint.
+3. In a second terminal: `make iphone-api` (keep it running).
+4. `make iphone-check` — must print three `ok` lines.
+5. If macOS asks whether Docker may accept incoming network connections, allow it.
+
+### On the iPhone (first time only: trust the development CA)
+
+1. On the Mac, `open -R .dev-iphone/upcycling-dev-root.crt`, then in Finder: right-click → Share → AirDrop → your iPhone. (AirDrop is preferred over downloading the file over the Wi-Fi: it cannot be swapped by someone else on the network.) On the iPhone the file is accepted as a **profile**.
+2. Settings → **Profile Downloaded** (or General → VPN & Device Management) → "Upcycling Development Root CA (local only)" → Install → passcode → Install. Optionally compare the SHA-256 fingerprint under More Details with the one `make iphone-up` printed.
+3. Settings → General → About → **Certificate Trust Settings** → turn on full trust for "Upcycling Development Root CA (local only)" → Continue.
+
+### Test
+
+1. Safari → `https://<mac>.local:8443/` (`scripts/iphone.sh url` prints it). Sign in with the account's email; the 6-digit code is in Mailpit **on the Mac** (http://localhost:8025).
+2. Installed PWA: Share → Add to Home Screen → open it from the home screen and **sign in again** (the home-screen app has its own cookies, separate from Safari). Enter the 6-digit code in the app; the email link would open Safari instead.
 
 Slice 1 checklist (record results in the PR): camera capture from a category; choosing several photos from the library, including HEIC (does Safari keep HEIC or convert to JPEG? check the format on the photo screen); thumbnails and previews; airplane mode or a weak network during an upload, then Retry; locking the phone or switching apps mid-upload; deleting photos and the garment; the same flow in the installed PWA.
 
-Record results of manual device checks in the PR. Without a device run, report iPhone behaviour as **not verified**.
+### When done
+
+`make iphone-down` stops the proxy (nothing listens on the LAN afterwards) and restores the localhost-only storage CORS rule; stop `make iphone-api` with Ctrl-C. Remove the profile on the iPhone when you no longer test (Settings → General → VPN & Device Management → Remove Profile): a trusted root CA can vouch for any website. `docker volume rm upcycling_iphone-ca` destroys the CA; the next `make iphone-up` creates a new one, which must be trusted again.
+
+### Troubleshooting the iPhone setup
+
+- **Safari "cannot find the server":** the iPhone and the Mac must be on the same Wi-Fi without client isolation (guest networks often block device-to-device traffic). If `<mac>.local` does not resolve, use the Wi-Fi IP: `UPCYCLING_LAN_HOST=$(ipconfig getifaddr en0) make iphone-up`, restart `make iphone-api` with the same variable, and open `https://<ip>:8443/` (the origin and the installed app change with the IP).
+- **"This connection is not private":** the root certificate is not installed or full trust is not enabled (step 3), or the CA volume was recreated.
+- **Uploads fail while the app works:** `make iphone-check`; `make storage-init` or `make services-up` reset storage CORS to localhost only — run `make iphone-up` again.
+- **Signed out / `origin_not_allowed`:** the page was opened under a different host than `make iphone-api` was started with.
+
+Do not expose these ports beyond a trusted local network. A tunnel (e.g. Cloudflare Tunnel, ngrok) would send traffic through an external provider and needs explicit approval. Without a device run, report iPhone behaviour as **not verified**.
 
 ## Troubleshooting
 
@@ -126,7 +165,7 @@ All production configuration comes from environment variables; nothing secret is
 
 Also set `UPCYCLING_SMTP_USERNAME` / `UPCYCLING_SMTP_PASSWORD` as required by the provider, and `UPCYCLING_FORWARDED_ALLOW_IPS` to the reverse proxy's address. `make docker-smoke` verifies that the image rejects the development defaults and can decode HEIC. Open items: [docs/follow-ups.md](follow-ups.md).
 
-**Object storage deployment (ADR-0006).** The bucket must be private, with a credential limited to that bucket, versioning off (or lifecycle rules that purge deleted objects), and this CORS rule — `AllowedOrigins`: the PWA origin(s) only; `AllowedMethods`: `PUT`; `AllowedHeaders`: `content-type`, `x-amz-checksum-sha256`; `ExposeHeaders`: `ETag` — which `python -m app.cli storage-init` applies (it also creates the bucket if the credential may). The provider must honour signed `Content-Length` and `x-amz-checksum-sha256` on presigned PUTs. Schedule `python -m app.cli storage-sweep` (e.g. hourly) until the Slice 2 worker runs it. When the PWA gets a Content-Security-Policy, add the storage origin to `connect-src`.
+**Object storage deployment (ADR-0006).** The bucket must be private, with a credential limited to that bucket, versioning off (or lifecycle rules that purge deleted objects), and this CORS rule — `AllowedOrigins`: the PWA origin(s) only; `AllowedMethods`: `PUT`; `AllowedHeaders`: `content-type`, `x-amz-checksum-sha256`; `ExposeHeaders`: `ETag` — which `python -m app.cli storage-init` applies (it also creates the bucket if the credential may). The provider must honour signed `Content-Length` and `x-amz-checksum-sha256` on presigned PUTs. Run `python -m app.cli storage-sweep` daily (operator cron) if a deployment exists before the Slice 2 worker schedules it (follow-up F22). When the PWA gets a Content-Security-Policy, add the storage origin to `connect-src`.
 
 ## Python environments for future ML work
 

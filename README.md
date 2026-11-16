@@ -26,8 +26,9 @@ backend/                 FastAPI modular monolith (Python 3.13, uv)
 packages/api-client/     TypeScript client generated from OpenAPI (committed)
 apps/expert-pwa/         React + Vite PWA (Node.js 24, pnpm)
 docs/adr/                Architecture decision records
-scripts/                 Contract drift check, Docker smoke test, CI storage start-up
-compose.yaml             Local PostgreSQL 18, Mailpit, SeaweedFS (S3-compatible storage)
+scripts/                 Contract drift check, Docker smoke test, CI storage, iPhone HTTPS setup
+infra/iphone/            Caddy config for testing on a real iPhone over the local Wi-Fi
+compose.yaml             Local PostgreSQL 18, Mailpit, SeaweedFS; optional iPhone HTTPS proxy
 ```
 
 ## Quick start
