@@ -1,0 +1,31 @@
+# Local development services only. The API and PWA run natively for fast reload
+# (see docs/development.md). Not a production deployment definition.
+name: upcycling
+
+services:
+  db:
+    image: postgres:18.4
+    environment:
+      POSTGRES_USER: upcycling
+      POSTGRES_PASSWORD: upcycling
+      POSTGRES_DB: upcycling
+    ports:
+      - '127.0.0.1:55432:5432' # non-default host port avoids clashing with a local PostgreSQL
+    volumes:
+      # PostgreSQL 18 images keep data under /var/lib/postgresql/<major>/.
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U upcycling -d upcycling']
+      interval: 2s
+      timeout: 3s
+      retries: 20
+
+  mailpit:
+    # Catches all outgoing email in development; web UI on http://localhost:8025
+    image: axllent/mailpit:v1.33
+    ports:
+      - '127.0.0.1:1025:1025'
+      - '127.0.0.1:8025:8025'
+
+volumes:
+  pgdata:

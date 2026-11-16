@@ -1,0 +1,11 @@
+# Generated (compared byte-for-byte by scripts/check-contract.sh)
+packages/api-client/openapi.json
+packages/api-client/src/schema.d.ts
+pnpm-lock.yaml
+# Python is formatted by Ruff; prose documents are edited by hand
+backend/
+*.md
+dist/
+dev-dist/
+playwright-report/
+test-results/
