@@ -1,6 +1,6 @@
 import { defineConfig, devices } from '@playwright/test';
 
-import { BACKEND_ENV, PWA_ORIGIN } from './tests/e2e/env';
+import { BACKEND_ENV, E2E_API_PORT, PWA_ORIGIN } from './tests/e2e/env';
 
 const CI = Boolean(process.env.CI);
 
@@ -24,15 +24,15 @@ export default defineConfig({
   ],
   webServer: [
     {
-      command:
-        'uv run --directory ../../backend uvicorn app.main:create_app --factory --port 8000 --timeout-keep-alive 75',
-      url: 'http://localhost:8000/api/v1/health',
+      command: `uv run --directory ../../backend uvicorn app.main:create_app --factory --port ${E2E_API_PORT} --timeout-keep-alive 75`,
+      url: `http://localhost:${E2E_API_PORT}/api/v1/health`,
       env: BACKEND_ENV,
       reuseExistingServer: !CI,
     },
     {
       command: 'npm run build && npm run preview',
       url: PWA_ORIGIN,
+      env: { UPCYCLING_API_PROXY_TARGET: `http://localhost:${E2E_API_PORT}` },
       reuseExistingServer: !CI,
       timeout: 120_000,
     },

@@ -1,4 +1,6 @@
 export const PWA_ORIGIN = 'http://localhost:4173';
+// Not 8000, so e2e can run while the dev API (make dev-api) is up.
+export const E2E_API_PORT = 8001;
 export const MAILPIT_URL = process.env.MAILPIT_URL ?? 'http://localhost:8025';
 
 /** Backend configuration for e2e runs; isolated database, Mailpit SMTP, relaxed rate limits. */
