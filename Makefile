@@ -5,7 +5,8 @@ PWA := @upcycling/expert-pwa
 LOCALE ?= uk
 
 .DEFAULT_GOAL := help
-.PHONY: help setup services-up services-down migrate seed-user dev-api dev-web \
+.PHONY: help setup services-up services-down migrate seed-user storage-init storage-sweep \
+	dev-api dev-web \
 	gen-client contract-check format lint typecheck test test-backend test-web test-e2e \
 	build docker-smoke check
 
@@ -16,8 +17,9 @@ setup: ## Install backend and frontend dependencies from lockfiles
 	cd backend && uv sync --locked
 	$(PNPM) install --frozen-lockfile
 
-services-up: ## Start PostgreSQL and Mailpit (docker compose)
+services-up: ## Start PostgreSQL, Mailpit and S3-compatible storage; prepare the bucket
 	docker compose up -d --wait
+	cd backend && uv run python -m app.cli storage-init
 
 services-down: ## Stop local services (data volume is kept)
 	docker compose down
@@ -28,6 +30,12 @@ migrate: ## Apply database migrations
 seed-user: ## Create the expert account: make seed-user EMAIL=you@example.com [LOCALE=uk]
 	@test -n "$(EMAIL)" || (echo "Usage: make seed-user EMAIL=you@example.com [LOCALE=uk]" && exit 1)
 	cd backend && uv run python -m app.cli create-user --email "$(EMAIL)" --locale "$(LOCALE)" --if-not-exists
+
+storage-init: ## Create the bucket and its browser-upload CORS rule (idempotent)
+	cd backend && uv run python -m app.cli storage-init
+
+storage-sweep: ## Purge deleted/stale photos and unreferenced storage objects
+	cd backend && uv run python -m app.cli storage-sweep
 
 dev-api: ## Run the API with reload on :8000
 	cd backend && uv run uvicorn app.main:create_app --factory --reload --port 8000 --timeout-keep-alive 75

@@ -36,3 +36,45 @@ class RateLimited(AppError):
     def __init__(self, retry_after_seconds: int) -> None:
         super().__init__()
         self.retry_after_seconds = retry_after_seconds
+
+
+class NotFound(AppError):
+    """Missing, deleted, or owned by someone else: indistinguishable on purpose."""
+
+    code = "not_found"
+    message = "Resource not found."
+
+
+class IdempotencyConflict(AppError):
+    code = "idempotency_conflict"
+    message = "This idempotency key was already used with different parameters."
+
+
+class UnsupportedMediaType(AppError):
+    code = "unsupported_media_type"
+    message = "Only JPEG, PNG and HEIC/HEIF photos are supported."
+
+
+class UploadTooLarge(AppError):
+    code = "upload_too_large"
+    message = "The photo exceeds the maximum upload size."
+
+
+class MediaLimitReached(AppError):
+    code = "media_limit_reached"
+    message = "This garment already has the maximum number of photos."
+
+
+class TooManyPendingUploads(AppError):
+    code = "too_many_pending_uploads"
+    message = "Too many unfinished uploads. Finish or remove some first."
+
+
+class UploadIncomplete(AppError):
+    code = "upload_incomplete"
+    message = "The photo has not been uploaded yet."
+
+
+class StorageUnavailable(AppError):
+    code = "storage_unavailable"
+    message = "Photo storage is temporarily unavailable. Try again."

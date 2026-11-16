@@ -12,6 +12,9 @@ dependencies = [
     "alembic>=1.20,<2",
     "uvicorn[standard]>=0.54,<0.55",
     "aiosmtplib>=5.1,<6",
+    "boto3>=1.44,<2",
+    "pillow>=13,<14",
+    "pi-heif>=1.4,<2",
 ]
 
 [dependency-groups]
@@ -21,6 +24,7 @@ dev = [
     "httpx>=0.28,<0.29",
     "ruff>=0.17,<0.18",
     "mypy>=2.4,<3",
+    "types-boto3[s3]>=1.44,<2",
 ]
 
 [tool.uv]
@@ -47,6 +51,11 @@ python_version = "3.13"
 strict = true
 plugins = ["pydantic.mypy"]
 files = ["app", "scripts", "tests"]
+
+[[tool.mypy.overrides]]
+# pi-heif ships no type information; it is only used to register the Pillow plugin.
+module = ["pi_heif"]
+ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = ["tests.*"]

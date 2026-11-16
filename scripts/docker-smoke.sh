@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Builds the backend image and verifies it behaves as a production artifact:
 # runs as non-root, refuses unsafe production config, migrates, and serves health/readiness.
+# Object storage is configured but not contacted (readiness covers the database only).
 # Requires PostgreSQL reachable from containers at SMOKE_DATABASE_URL (database must exist).
 set -euo pipefail
 
@@ -16,6 +17,10 @@ SAFE_ENV=(
   -e "UPCYCLING_SMTP_HOST=smtp.smoke.example"
   -e "UPCYCLING_SMTP_FROM=Upcycling <no-reply@smoke.example>"
   -e "UPCYCLING_SMTP_STARTTLS=true"
+  -e "UPCYCLING_STORAGE_ENDPOINT_URL=https://s3.smoke.example"
+  -e "UPCYCLING_STORAGE_BUCKET=upcycling-smoke"
+  -e "UPCYCLING_STORAGE_ACCESS_KEY_ID=smoke-access-key"
+  -e "UPCYCLING_STORAGE_SECRET_ACCESS_KEY=$(openssl rand -hex 32)"
 )
 
 fail() { echo "docker-smoke: FAIL: $*" >&2; exit 1; }
@@ -52,5 +57,11 @@ status="$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:$PORT/api/v1/
 status="$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' \
   -d '{"email":"a@example.com"}' "http://127.0.0.1:$PORT/api/v1/auth/login-requests")"
 [[ "$status" == "403" ]] || fail "state-changing request without Origin was not rejected (HTTP $status)"
+
+# The image must be able to decode HEIC (pi-heif's bundled libheif works on this platform).
+"${RUN[@]}" "${SAFE_ENV[@]}" "$IMAGE" python -c \
+  "import pi_heif; assert pi_heif.libheif_info()['decoders'], 'no HEIF decoder'" ||
+  fail "HEIC decoding is unavailable in the image"
+echo "docker-smoke: HEIC decoder available"
 
 echo "docker-smoke: OK"

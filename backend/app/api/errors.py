@@ -10,11 +10,20 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from app.api.schemas import ErrorBody, ErrorDetail, ErrorResponse
 from app.application.errors import (
     AppError,
+    IdempotencyConflict,
     InvalidLoginCode,
     InvalidLoginToken,
+    MediaLimitReached,
+    NotFound,
     RateLimited,
+    StorageUnavailable,
+    TooManyPendingUploads,
     Unauthenticated,
+    UnsupportedMediaType,
+    UploadIncomplete,
+    UploadTooLarge,
 )
+from app.application.ports import StorageUnavailableError
 from app.infrastructure.logging import request_id_var
 
 logger = logging.getLogger(__name__)
@@ -24,6 +33,14 @@ _STATUS_BY_ERROR: dict[type[AppError], int] = {
     InvalidLoginToken: 400,
     InvalidLoginCode: 400,
     RateLimited: 429,
+    NotFound: 404,
+    IdempotencyConflict: 409,
+    UnsupportedMediaType: 415,
+    UploadTooLarge: 413,
+    MediaLimitReached: 409,
+    TooManyPendingUploads: 409,
+    UploadIncomplete: 409,
+    StorageUnavailable: 503,
 }
 
 _HTTP_CODES = {404: "not_found", 405: "method_not_allowed"}
@@ -54,6 +71,12 @@ async def _handle_app_error(_: Request, exc: Exception) -> JSONResponse:
     return error_response(status, exc.code, exc.message, headers=headers)
 
 
+async def _handle_storage_unavailable(_: Request, exc: Exception) -> JSONResponse:
+    logger.warning("storage_unavailable", exc_info=exc)
+    error = StorageUnavailable()
+    return error_response(503, error.code, error.message, headers={"Retry-After": "5"})
+
+
 async def _handle_validation_error(_: Request, exc: Exception) -> JSONResponse:
     if not isinstance(exc, RequestValidationError):
         raise exc
@@ -79,5 +102,6 @@ async def _handle_http_error(_: Request, exc: Exception) -> JSONResponse:
 
 def register_error_handlers(app: FastAPI) -> None:
     app.add_exception_handler(AppError, _handle_app_error)
+    app.add_exception_handler(StorageUnavailableError, _handle_storage_unavailable)
     app.add_exception_handler(RequestValidationError, _handle_validation_error)
     app.add_exception_handler(StarletteHTTPException, _handle_http_error)

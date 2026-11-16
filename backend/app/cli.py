@@ -2,19 +2,24 @@
 
 uv run python -m app.cli create-user --email expert@example.com --locale uk
 uv run python -m app.cli revoke-sessions --email expert@example.com
+uv run python -m app.cli storage-init     # create bucket + browser-upload CORS rule
+uv run python -m app.cli storage-sweep    # remove deleted/stale photos and orphan objects
 """
 
 import argparse
 import asyncio
+import json
 import sys
 
 from app.application.auth.sessions import SessionService
+from app.application.garments import StorageSweeper
 from app.application.ports import system_clock
 from app.application.users import InvalidEmail, UserAlreadyExists, UserService
 from app.config import get_settings
 from app.domain.users import DEFAULT_LOCALE, Locale, normalize_email
 from app.infrastructure.db.engine import create_engine, create_session_factory
 from app.infrastructure.db.repositories import UserRepository
+from app.infrastructure.storage import S3ObjectStorage
 
 
 async def _create_user(email: str, locale: Locale, if_not_exists: bool) -> int:
@@ -54,6 +59,27 @@ async def _revoke_sessions(email: str) -> int:
         await engine.dispose()
 
 
+async def _storage_init() -> int:
+    settings = get_settings()
+    await S3ObjectStorage(settings).ensure_bucket(cors_origins=sorted(settings.allowed_origins))
+    print(f"Bucket ready; uploads allowed from: {', '.join(sorted(settings.allowed_origins))}")
+    return 0
+
+
+async def _storage_sweep() -> int:
+    settings = get_settings()
+    engine = create_engine(settings.database_url)
+    try:
+        async with create_session_factory(engine)() as db:
+            report = await StorageSweeper(
+                db, settings, system_clock, S3ObjectStorage(settings)
+            ).run()
+        print(json.dumps(report.as_dict()))
+        return 0
+    finally:
+        await engine.dispose()
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m app.cli")
     commands = parser.add_subparsers(dest="command", required=True)
@@ -66,9 +92,22 @@ def main(argv: list[str] | None = None) -> int:
     revoke = commands.add_parser("revoke-sessions", help="Sign a user out everywhere.")
     revoke.add_argument("--email", required=True)
 
+    commands.add_parser(
+        "storage-init",
+        help="Create the bucket if missing and allow presigned uploads from the PWA origin(s).",
+    )
+    commands.add_parser(
+        "storage-sweep",
+        help="Purge deleted photos/garments, stale uploads and unreferenced objects.",
+    )
+
     args = parser.parse_args(argv)
     if args.command == "create-user":
         return asyncio.run(_create_user(args.email, Locale(args.locale), args.if_not_exists))
+    if args.command == "storage-init":
+        return asyncio.run(_storage_init())
+    if args.command == "storage-sweep":
+        return asyncio.run(_storage_sweep())
     return asyncio.run(_revoke_sessions(args.email))
 
 

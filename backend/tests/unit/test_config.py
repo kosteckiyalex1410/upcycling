@@ -14,6 +14,10 @@ SAFE_PRODUCTION: dict[str, Any] = {
     "smtp_host": "smtp.example",
     "smtp_from": "Upcycling <no-reply@upcycling.example>",
     "smtp_starttls": True,
+    "storage_endpoint_url": "https://s3.storage.example",
+    "storage_bucket": "upcycling-prod",
+    "storage_access_key_id": "AKIAEXAMPLE",
+    "storage_secret_access_key": SecretStr("s" * 40),
 }
 
 
@@ -35,6 +39,15 @@ def test_safe_production_settings_are_accepted() -> None:
         ({"extra_allowed_origins": ["http://localhost:5173"]}, "allowed origins"),
         ({"database_url": DEV_DATABASE_URL}, "development database"),
         ({"smtp_starttls": False}, "SMTP must use TLS"),
+        (
+            {"storage_secret_access_key": SecretStr("upcycling-dev-storage-secret")},
+            "STORAGE_SECRET_ACCESS_KEY must not be the development value",
+        ),
+        ({"storage_endpoint_url": "http://s3.storage.example"}, "Storage endpoints must use https"),
+        (
+            {"storage_public_endpoint_url": "http://localhost:8333"},
+            "Storage endpoints must use https",
+        ),
     ],
 )
 def test_unsafe_production_settings_are_rejected(override: dict[str, Any], fragment: str) -> None:
@@ -59,3 +72,12 @@ def test_secure_cookie_uses_host_prefix() -> None:
     assert _settings(**SAFE_PRODUCTION).session_cookie_key == "__Host-upcycling_session"
     insecure_dev = _settings(environment="development", session_cookie_secure=False)
     assert insecure_dev.session_cookie_key == "upcycling_session"
+
+
+def test_presigned_urls_use_the_public_storage_endpoint_when_set() -> None:
+    internal = _settings(**SAFE_PRODUCTION)
+    assert internal.storage_presign_endpoint_url == "https://s3.storage.example"
+    public = _settings(
+        **{**SAFE_PRODUCTION, "storage_public_endpoint_url": "https://media.example"}
+    )
+    assert public.storage_presign_endpoint_url == "https://media.example"

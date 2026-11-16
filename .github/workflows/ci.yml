@@ -20,6 +20,7 @@ env:
 jobs:
   backend:
     name: Backend (lint, types, tests, migrations)
+    # Tests use real PostgreSQL and S3-compatible storage (SeaweedFS, started below).
     runs-on: ubuntu-24.04
     services:
       postgres:
@@ -41,6 +42,8 @@ jobs:
         with:
           version: ${{ env.UV_VERSION }}
           enable-cache: true
+      - name: Start S3-compatible storage
+        run: ../scripts/start-ci-storage.sh
       - run: uv sync --locked
       - run: uv run ruff format --check .
       - run: uv run ruff check .
@@ -132,6 +135,8 @@ jobs:
       - run: uv sync --locked
         working-directory: backend
       - run: pnpm install --frozen-lockfile
+      - name: Start S3-compatible storage
+        run: ./scripts/start-ci-storage.sh
       - run: pnpm --filter @upcycling/expert-pwa exec playwright install --with-deps chromium webkit
       - run: pnpm --filter @upcycling/expert-pwa test:e2e
       - uses: actions/upload-artifact@v7

@@ -21,6 +21,7 @@ from app.application.ports import EmailMessage
 from app.application.users import UserService
 from app.config import Settings
 from app.domain.users import Locale, User
+from app.infrastructure.storage import S3ObjectStorage
 from app.main import create_app
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
@@ -31,6 +32,14 @@ TEST_DATABASE_URL = os.environ.get(
 PUBLIC_ORIGIN = "https://app.test"
 CLIENT_IP = "203.0.113.10"
 EXPERT_EMAIL = "expert@example.com"
+TEST_STORAGE_ENDPOINT = os.environ.get("UPCYCLING_TEST_STORAGE_ENDPOINT", "http://localhost:8333")
+TEST_STORAGE_BUCKET = "upcycling-test"
+TEST_STORAGE_SETTINGS: dict[str, Any] = {
+    "storage_endpoint_url": TEST_STORAGE_ENDPOINT,
+    "storage_bucket": TEST_STORAGE_BUCKET,
+    "storage_access_key_id": "upcycling-dev",
+    "storage_secret_access_key": SecretStr("upcycling-dev-storage-secret"),
+}
 
 
 def recreate_database(url: str) -> None:
@@ -102,8 +111,16 @@ def email_sender() -> RecordingEmailSender:
     return RecordingEmailSender()
 
 
+@pytest.fixture(scope="session")
+async def storage_bucket() -> str:
+    """Real S3-compatible storage (SeaweedFS from compose/CI), one bucket per test run."""
+    settings = Settings(_env_file=None, environment="test", **TEST_STORAGE_SETTINGS)
+    await S3ObjectStorage(settings).ensure_bucket(cors_origins=[PUBLIC_ORIGIN])
+    return TEST_STORAGE_BUCKET
+
+
 @pytest.fixture
-def make_settings(database_url: str) -> Callable[..., Settings]:
+def make_settings(database_url: str, storage_bucket: str) -> Callable[..., Settings]:
     def factory(**overrides: Any) -> Settings:
         values: dict[str, Any] = {
             "environment": "test",
@@ -111,6 +128,7 @@ def make_settings(database_url: str) -> Callable[..., Settings]:
             "public_origin": PUBLIC_ORIGIN,
             "session_cookie_secure": True,
             "secret_key": SecretStr("test-secret-key-" + "x" * 32),
+            **TEST_STORAGE_SETTINGS,
         }
         values.update(overrides)
         return Settings(_env_file=None, **values)
@@ -132,8 +150,16 @@ async def app(
     await application.state.engine.dispose()
     engine = create_engine(database_url)
     with engine.begin() as conn:
-        conn.execute(text("TRUNCATE users, login_challenges, auth_sessions CASCADE"))
+        conn.execute(
+            text("TRUNCATE users, login_challenges, auth_sessions, garments, media_assets CASCADE")
+        )
     engine.dispose()
+    await empty_bucket(S3ObjectStorage(settings))
+
+
+async def empty_bucket(storage: S3ObjectStorage) -> None:
+    keys = [obj.key for obj in await storage.list_objects("")]
+    await storage.delete_many(keys)
 
 
 def make_client(app: FastAPI, *, ip: str = CLIENT_IP) -> httpx.AsyncClient:
