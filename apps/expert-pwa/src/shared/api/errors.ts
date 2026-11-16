@@ -11,6 +11,18 @@ const LOCALIZED_ERROR_CODES = [
   'network_error',
   'not_found',
   'internal_error',
+  'unsupported_media_type',
+  'upload_too_large',
+  'image_too_large',
+  'invalid_image',
+  'checksum_mismatch',
+  'media_limit_reached',
+  'too_many_pending_uploads',
+  'upload_incomplete',
+  'storage_unavailable',
+  'idempotency_conflict',
+  'upload_failed',
+  'file_unreadable',
 ] as const;
 
 export type LocalizedErrorCode = (typeof LOCALIZED_ERROR_CODES)[number] | 'unknown';
@@ -39,7 +51,11 @@ export function toApiError(body: unknown, status: number): ApiError {
 }
 
 export function errorCodeOf(error: unknown): LocalizedErrorCode {
-  const code = error instanceof ApiError ? error.code : 'unknown';
+  return localizedCode(error instanceof ApiError ? error.code : 'unknown');
+}
+
+/** Maps any stable code (API error or photo `error_code`) to one the UI can display. */
+export function localizedCode(code: string): LocalizedErrorCode {
   return (LOCALIZED_ERROR_CODES as readonly string[]).includes(code)
     ? (code as LocalizedErrorCode)
     : 'unknown';
@@ -47,4 +63,8 @@ export function errorCodeOf(error: unknown): LocalizedErrorCode {
 
 export function errorMessageKey(error: unknown) {
   return `errors.${errorCodeOf(error)}` as const;
+}
+
+export function errorKeyForCode(code: string) {
+  return `errors.${localizedCode(code)}` as const;
 }

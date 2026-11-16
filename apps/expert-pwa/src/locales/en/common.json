@@ -34,8 +34,12 @@
   },
   "home": {
     "title": "My projects",
-    "greeting": "Signed in as {{email}}.",
-    "emptyState": "Your garment projects will appear here."
+    "newGarment": "New project",
+    "creating": "Creating…",
+    "empty": "No projects yet. Create one and photograph the garment.",
+    "loadMore": "Show more",
+    "photoCount_one": "{{count}} photo",
+    "photoCount_other": "{{count}} photos"
   },
   "settings": {
     "title": "Settings",
@@ -69,6 +73,88 @@
     "network_error": "Cannot reach the server. Check your connection and try again.",
     "not_found": "Not found.",
     "internal_error": "Something went wrong on the server. Please try again later.",
+    "unsupported_media_type": "This file type is not supported. Use JPEG, PNG or HEIC.",
+    "upload_too_large": "The photo file is too large.",
+    "image_too_large": "The image resolution is too high.",
+    "invalid_image": "The file is damaged or is not a readable image.",
+    "checksum_mismatch": "The photo was damaged during upload. Try again.",
+    "media_limit_reached": "This project already has the maximum number of photos.",
+    "too_many_pending_uploads": "Too many photos are uploading at once. Wait and retry.",
+    "upload_incomplete": "The photo did not finish uploading. Retry.",
+    "storage_unavailable": "Photo storage is temporarily unavailable. Retry later.",
+    "idempotency_conflict": "This request conflicts with an earlier one. Reload the page.",
+    "upload_failed": "Storage refused the upload. Retry, or choose the photo again.",
+    "file_unreadable": "The photo could not be read on this device. Choose it again.",
     "unknown": "Something went wrong. Please try again."
+  },
+  "actions": {
+    "cancel": "Cancel",
+    "deletePermanently": "Delete permanently",
+    "save": "Save",
+    "saving": "Saving…",
+    "saved": "Saved",
+    "retry": "Retry",
+    "remove": "Remove"
+  },
+  "garment": {
+    "untitled": "Untitled project",
+    "createdOn": "Created {{date}}",
+    "back": "All projects",
+    "details": "Details",
+    "titleLabel": "Name",
+    "titlePlaceholder": "e.g. Denim jacket",
+    "notesLabel": "Notes",
+    "photos": "Photos",
+    "takePhoto": "Take photo",
+    "choosePhotos": "Choose photos",
+    "noPhotos": "No photos yet.",
+    "openPhoto": "Open photo: {{category}}",
+    "delete": "Delete project",
+    "deleteConfirm": "Delete this project and all its photos permanently? This cannot be undone.",
+    "leaveTitle": "Photos are still uploading.",
+    "leaveBody": "If you leave now, unfinished photos will not be saved.",
+    "leave": "Leave",
+    "stay": "Stay"
+  },
+  "categories": {
+    "front": "Front",
+    "back": "Back",
+    "detail": "Details",
+    "fabric": "Fabric",
+    "defect": "Defects",
+    "label": "Label"
+  },
+  "categoryHints": {
+    "front": "The whole garment from the front",
+    "back": "The whole garment from the back",
+    "detail": "Pockets, closures, seams, trims",
+    "fabric": "Close-up of the fabric texture",
+    "defect": "Stains, holes, wear, damage",
+    "label": "Care and composition labels"
+  },
+  "upload": {
+    "queued": "Waiting…",
+    "hashing": "Preparing…",
+    "uploading": "Uploading {{percent}}%",
+    "processing": "Checking…",
+    "failed": "Not uploaded",
+    "unfinished": "Unfinished upload",
+    "rejected": "Rejected",
+    "progressLabel": "Upload of {{name}}"
+  },
+  "photo": {
+    "back": "Back to project",
+    "alt": "Photo: {{category}}",
+    "category": "Category",
+    "details": "Details",
+    "format": "Format",
+    "dimensions": "Dimensions",
+    "dimensionsValue": "{{width}} × {{height}} px",
+    "fileSize": "File size",
+    "fileName": "File name",
+    "uploaded": "Uploaded",
+    "downloadOriginal": "Download original",
+    "delete": "Delete photo",
+    "deleteConfirm": "Delete this photo permanently? This cannot be undone."
   }
 }
