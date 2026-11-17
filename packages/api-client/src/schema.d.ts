@@ -178,6 +178,49 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/garments/{garment_id}/voice-notes/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Complete Voice Note Upload
+         * @description Verify the uploaded recording (size, SHA-256, container, codec, real duration).
+         *     Returns it as `ready` or `rejected` (with `error_code`); `upload_incomplete` (409) if
+         *     the bytes have not arrived yet. Safe to repeat.
+         */
+        post: operations["complete_voice_note_upload"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/garments/{garment_id}/voice-notes/uploads": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Voice Note Upload
+         * @description Register a recording and get a presigned PUT for its bytes. Calling again with the
+         *     same `client_upload_id` returns the same note with a fresh URL while it is pending.
+         */
+        post: operations["create_voice_note_upload"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/health": {
         parameters: {
             query?: never;
@@ -314,6 +357,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/voice-notes/{voice_note_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Voice Note
+         * @description Permanently delete the recording and its metadata.
+         */
+        delete: operations["delete_voice_note"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/voice-notes/{voice_note_id}/audio": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Voice Note Audio
+         * @description The original recording, for playback. Supports a single HTTP byte range, which
+         *     Safari requires for `<audio>`.
+         */
+        get: operations["get_voice_note_audio"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -325,6 +409,14 @@ export interface components {
              * Format: uuid
              */
             media_id: string;
+        };
+        /** CompleteVoiceNoteRequest */
+        CompleteVoiceNoteRequest: {
+            /**
+             * Voice Note Id
+             * Format: uuid
+             */
+            voice_note_id: string;
         };
         /** CreateGarmentRequest */
         CreateGarmentRequest: {
@@ -341,7 +433,8 @@ export interface components {
         };
         /** CreateUploadRequest */
         CreateUploadRequest: {
-            category: components["schemas"]["MediaCategory"];
+            /** @description Optional; set later. */
+            category?: components["schemas"]["MediaCategory"] | null;
             /**
              * Client Upload Id
              * Format: uuid
@@ -355,6 +448,37 @@ export interface components {
             content_type: string;
             /** Filename */
             filename?: string | null;
+            /**
+             * Sha256
+             * @description Lowercase hex SHA-256.
+             */
+            sha256: string;
+            /** Size Bytes */
+            size_bytes: number;
+        };
+        /** CreateVoiceNoteUploadRequest */
+        CreateVoiceNoteUploadRequest: {
+            /**
+             * Client Upload Id
+             * Format: uuid
+             * @description Idempotency key; retries reuse it.
+             */
+            client_upload_id: string;
+            /**
+             * Content Type
+             * @description `MediaRecorder.mimeType`: audio/mp4 or audio/webm…
+             */
+            content_type: string;
+            /**
+             * Duration Ms
+             * @description Duration measured while recording (informational).
+             */
+            duration_ms?: number | null;
+            /**
+             * Recorded At
+             * @description When recording started.
+             */
+            recorded_at?: string | null;
             /**
              * Sha256
              * @description Lowercase hex SHA-256.
@@ -431,6 +555,11 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+            /**
+             * Voice Notes
+             * @description Voice recordings including pending and rejected ones.
+             */
+            voice_notes: components["schemas"]["VoiceNote"][];
         };
         /** GarmentPage */
         GarmentPage: {
@@ -519,7 +648,8 @@ export interface components {
         };
         /** MediaAsset */
         MediaAsset: {
-            category: components["schemas"]["MediaCategory"];
+            /** @description Null until the expert assigns one. */
+            category: components["schemas"]["MediaCategory"] | null;
             /** Completed At */
             completed_at: string | null;
             /**
@@ -642,7 +772,8 @@ export interface components {
         };
         /** UpdateMediaRequest */
         UpdateMediaRequest: {
-            category: components["schemas"]["MediaCategory"];
+            /** @description `null` removes the category. */
+            category: components["schemas"]["MediaCategory"] | null;
         };
         /** UploadTicketResponse */
         UploadTicketResponse: {
@@ -659,6 +790,70 @@ export interface components {
         VerifyTokenRequest: {
             /** Token */
             token: string;
+        };
+        /** VoiceNote */
+        VoiceNote: {
+            /**
+             * Audio Url
+             * @description Same-origin, authenticated, supports HTTP Range (for <audio>).
+             */
+            audio_url: string | null;
+            /**
+             * Codec
+             * @description `aac` or `opus`; set when ready.
+             */
+            codec: string | null;
+            /** Completed At */
+            completed_at: string | null;
+            /**
+             * Content Type
+             * @description Container detected from the bytes.
+             */
+            content_type: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Duration Ms
+             * @description Measured by the server; set when ready.
+             */
+            duration_ms: number | null;
+            /**
+             * Error Code
+             * @description Set when `status` is `rejected`.
+             */
+            error_code: string | null;
+            /**
+             * Garment Id
+             * Format: uuid
+             */
+            garment_id: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Recorded At
+             * @description Device time when recording started.
+             */
+            recorded_at: string | null;
+            /**
+             * Sha256
+             * @description Hex SHA-256 of the stored original recording.
+             */
+            sha256: string | null;
+            /** Size Bytes */
+            size_bytes: number | null;
+            status: components["schemas"]["MediaStatus"];
+        };
+        /** VoiceNoteUploadTicket */
+        VoiceNoteUploadTicket: {
+            /** @description Null once the note is not pending. */
+            upload: components["schemas"]["PresignedUpload"] | null;
+            voice_note: components["schemas"]["VoiceNote"];
         };
     };
     responses: never;
@@ -1063,6 +1258,76 @@ export interface operations {
             };
         };
     };
+    complete_voice_note_upload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                garment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CompleteVoiceNoteRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VoiceNote"];
+                };
+            };
+            /** @description Error (see `error.code`). */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    create_voice_note_upload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                garment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateVoiceNoteUploadRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VoiceNoteUploadTicket"];
+                };
+            };
+            /** @description Error (see `error.code`). */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     get_health: {
         parameters: {
             query?: never;
@@ -1345,6 +1610,87 @@ export interface operations {
             };
             /** @description Not modified (matching `If-None-Match`). */
             304: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error (see `error.code`). */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    delete_voice_note: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                voice_note_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error (see `error.code`). */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_voice_note_audio: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                voice_note_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Audio bytes. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "audio/*": unknown;
+                };
+            };
+            /** @description Requested byte range. */
+            206: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not modified (matching `If-None-Match`). */
+            304: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Range not satisfiable. */
+            416: {
                 headers: {
                     [name: string]: unknown;
                 };

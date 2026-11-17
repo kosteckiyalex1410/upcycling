@@ -16,6 +16,21 @@
         "title": "CompleteUploadRequest",
         "type": "object"
       },
+      "CompleteVoiceNoteRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "voice_note_id": {
+            "format": "uuid",
+            "title": "Voice Note Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "voice_note_id"
+        ],
+        "title": "CompleteVoiceNoteRequest",
+        "type": "object"
+      },
       "CreateGarmentRequest": {
         "additionalProperties": false,
         "properties": {
@@ -60,7 +75,15 @@
         "additionalProperties": false,
         "properties": {
           "category": {
-            "$ref": "#/components/schemas/MediaCategory"
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MediaCategory"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Optional; set later."
           },
           "client_upload_id": {
             "description": "Idempotency key; retries reuse it.",
@@ -100,12 +123,73 @@
         },
         "required": [
           "client_upload_id",
-          "category",
           "content_type",
           "size_bytes",
           "sha256"
         ],
         "title": "CreateUploadRequest",
+        "type": "object"
+      },
+      "CreateVoiceNoteUploadRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "client_upload_id": {
+            "description": "Idempotency key; retries reuse it.",
+            "format": "uuid",
+            "title": "Client Upload Id",
+            "type": "string"
+          },
+          "content_type": {
+            "description": "`MediaRecorder.mimeType`: audio/mp4 or audio/webm…",
+            "maxLength": 100,
+            "title": "Content Type",
+            "type": "string"
+          },
+          "duration_ms": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Duration measured while recording (informational).",
+            "title": "Duration Ms"
+          },
+          "recorded_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When recording started.",
+            "title": "Recorded At"
+          },
+          "sha256": {
+            "description": "Lowercase hex SHA-256.",
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sha256",
+            "type": "string"
+          },
+          "size_bytes": {
+            "exclusiveMinimum": 0.0,
+            "title": "Size Bytes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "client_upload_id",
+          "content_type",
+          "size_bytes",
+          "sha256"
+        ],
+        "title": "CreateVoiceNoteUploadRequest",
         "type": "object"
       },
       "ErrorBody": {
@@ -238,6 +322,14 @@
             "format": "date-time",
             "title": "Updated At",
             "type": "string"
+          },
+          "voice_notes": {
+            "description": "Voice recordings including pending and rejected ones.",
+            "items": {
+              "$ref": "#/components/schemas/VoiceNote"
+            },
+            "title": "Voice Notes",
+            "type": "array"
           }
         },
         "required": [
@@ -246,7 +338,8 @@
           "notes",
           "created_at",
           "updated_at",
-          "media"
+          "media",
+          "voice_notes"
         ],
         "title": "Garment",
         "type": "object"
@@ -419,7 +512,15 @@
       "MediaAsset": {
         "properties": {
           "category": {
-            "$ref": "#/components/schemas/MediaCategory"
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MediaCategory"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Null until the expert assigns one."
           },
           "completed_at": {
             "anyOf": [
@@ -708,7 +809,15 @@
         "additionalProperties": false,
         "properties": {
           "category": {
-            "$ref": "#/components/schemas/MediaCategory"
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MediaCategory"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "`null` removes the category."
           }
         },
         "required": [
@@ -770,6 +879,177 @@
           "token"
         ],
         "title": "VerifyTokenRequest",
+        "type": "object"
+      },
+      "VoiceNote": {
+        "properties": {
+          "audio_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Same-origin, authenticated, supports HTTP Range (for <audio>).",
+            "title": "Audio Url"
+          },
+          "codec": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "`aac` or `opus`; set when ready.",
+            "title": "Codec"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "content_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Container detected from the bytes.",
+            "title": "Content Type"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "duration_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Measured by the server; set when ready.",
+            "title": "Duration Ms"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Set when `status` is `rejected`.",
+            "title": "Error Code"
+          },
+          "garment_id": {
+            "format": "uuid",
+            "title": "Garment Id",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "recorded_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Device time when recording started.",
+            "title": "Recorded At"
+          },
+          "sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Hex SHA-256 of the stored original recording.",
+            "title": "Sha256"
+          },
+          "size_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Size Bytes"
+          },
+          "status": {
+            "$ref": "#/components/schemas/MediaStatus"
+          }
+        },
+        "required": [
+          "id",
+          "garment_id",
+          "status",
+          "error_code",
+          "content_type",
+          "codec",
+          "size_bytes",
+          "sha256",
+          "duration_ms",
+          "recorded_at",
+          "created_at",
+          "completed_at",
+          "audio_url"
+        ],
+        "title": "VoiceNote",
+        "type": "object"
+      },
+      "VoiceNoteUploadTicket": {
+        "properties": {
+          "upload": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PresignedUpload"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Null once the note is not pending."
+          },
+          "voice_note": {
+            "$ref": "#/components/schemas/VoiceNote"
+          }
+        },
+        "required": [
+          "voice_note",
+          "upload"
+        ],
+        "title": "VoiceNoteUploadTicket",
         "type": "object"
       }
     }
@@ -1313,6 +1593,114 @@
         ]
       }
     },
+    "/api/v1/garments/{garment_id}/voice-notes/complete": {
+      "post": {
+        "description": "Verify the uploaded recording (size, SHA-256, container, codec, real duration).\nReturns it as `ready` or `rejected` (with `error_code`); `upload_incomplete` (409) if\nthe bytes have not arrived yet. Safe to repeat.",
+        "operationId": "complete_voice_note_upload",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "garment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Garment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompleteVoiceNoteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoiceNote"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Error (see `error.code`)."
+          }
+        },
+        "summary": "Complete Voice Note Upload",
+        "tags": [
+          "voice-notes"
+        ]
+      }
+    },
+    "/api/v1/garments/{garment_id}/voice-notes/uploads": {
+      "post": {
+        "description": "Register a recording and get a presigned PUT for its bytes. Calling again with the\nsame `client_upload_id` returns the same note with a fresh URL while it is pending.",
+        "operationId": "create_voice_note_upload",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "garment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Garment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateVoiceNoteUploadRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoiceNoteUploadTicket"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Error (see `error.code`)."
+          }
+        },
+        "summary": "Create Voice Note Upload",
+        "tags": [
+          "voice-notes"
+        ]
+      }
+    },
     "/api/v1/health": {
       "get": {
         "description": "Liveness: the process is serving requests. Does not touch the database.",
@@ -1660,6 +2048,92 @@
         "summary": "Get Media Thumbnail",
         "tags": [
           "garments"
+        ]
+      }
+    },
+    "/api/v1/voice-notes/{voice_note_id}": {
+      "delete": {
+        "description": "Permanently delete the recording and its metadata.",
+        "operationId": "delete_voice_note",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "voice_note_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Voice Note Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Error (see `error.code`)."
+          }
+        },
+        "summary": "Delete Voice Note",
+        "tags": [
+          "voice-notes"
+        ]
+      }
+    },
+    "/api/v1/voice-notes/{voice_note_id}/audio": {
+      "get": {
+        "description": "The original recording, for playback. Supports a single HTTP byte range, which\nSafari requires for `<audio>`.",
+        "operationId": "get_voice_note_audio",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "voice_note_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Voice Note Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "audio/*": {}
+            },
+            "description": "Audio bytes."
+          },
+          "206": {
+            "description": "Requested byte range."
+          },
+          "304": {
+            "description": "Not modified (matching `If-None-Match`)."
+          },
+          "416": {
+            "description": "Range not satisfiable."
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Error (see `error.code`)."
+          }
+        },
+        "summary": "Get Voice Note Audio",
+        "tags": [
+          "voice-notes"
         ]
       }
     }
