@@ -19,7 +19,8 @@ STORAGE_ORIGIN="https://${LAN_HOST}:8444"
 CERT_DIR=.dev-iphone
 CERT="$CERT_DIR/upcycling-dev-root.crt"
 CA_PATH=/data/caddy/pki/authorities/local/root.crt
-if [[ -z "${PNPM:-}" ]]; then
+# pnpm may only be available through corepack (`corepack pnpm`) when its shim is not installed.
+if [[ -z "${PNPM:-}" ]] || ! command -v "${PNPM%% *}" >/dev/null; then
   if command -v pnpm >/dev/null; then PNPM=pnpm; else PNPM="corepack pnpm"; fi
 fi
 export UPCYCLING_LAN_HOST="$LAN_HOST" UPCYCLING_IPHONE_API_PORT="$API_PORT"
