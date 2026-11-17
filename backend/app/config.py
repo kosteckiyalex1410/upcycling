@@ -10,6 +10,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEV_SECRET_KEY = "dev-only-insecure-secret-key-change-me-0000"  # noqa: S105 - rejected in production
 DEV_DATABASE_URL = "postgresql+psycopg://upcycling:upcycling@localhost:55432/upcycling"
+DEV_STORAGE_SECRET = "upcycling-dev-storage-secret"  # noqa: S105 - rejected in production
 
 # Production must receive these explicitly from the environment; defaults are for development.
 REQUIRED_IN_PRODUCTION = (
@@ -18,7 +19,13 @@ REQUIRED_IN_PRODUCTION = (
     "secret_key",
     "smtp_host",
     "smtp_from",
+    "storage_endpoint_url",
+    "storage_bucket",
+    "storage_access_key_id",
+    "storage_secret_access_key",
 )
+
+MIB = 1024 * 1024
 
 
 class Settings(BaseSettings):
@@ -62,9 +69,37 @@ class Settings(BaseSettings):
     smtp_timeout_seconds: float = 10.0
     smtp_from: str = "Upcycling <no-reply@upcycling.local>"
 
+    # S3-compatible object storage (ADR-0006). The backend talks to `storage_endpoint_url`;
+    # presigned upload URLs are built for `storage_public_endpoint_url`, which must be
+    # reachable from the expert's browser (defaults to the same endpoint).
+    storage_endpoint_url: str = "http://localhost:8333"
+    storage_public_endpoint_url: str | None = None
+    storage_region: str = "us-east-1"
+    storage_bucket: str = "upcycling"
+    storage_access_key_id: str = "upcycling-dev"
+    storage_secret_access_key: SecretStr = SecretStr(DEV_STORAGE_SECRET)
+    storage_addressing_style: Literal["path", "virtual"] = "path"
+
+    upload_url_ttl_seconds: int = 15 * 60
+    upload_max_bytes: int = 30 * MIB
+    image_max_pixels: int = 100_000_000
+    garment_max_photos: int = 40
+    pending_uploads_per_user: int = 20
+    # Voice notes (ADR-0007). The client stops recording at the duration limit; the server
+    # accepts a small tolerance for encoder padding.
+    voice_note_max_bytes: int = 20 * MIB
+    voice_note_max_seconds: int = 300
+    garment_max_voice_notes: int = 20
+    # Unfinished uploads and rejected photos older than this are removed by `storage-sweep`.
+    stale_upload_seconds: int = 24 * 3600
+
     @property
     def allowed_origins(self) -> frozenset[str]:
         return frozenset([self.public_origin, *self.extra_allowed_origins])
+
+    @property
+    def storage_presign_endpoint_url(self) -> str:
+        return self.storage_public_endpoint_url or self.storage_endpoint_url
 
     @property
     def is_production(self) -> bool:
@@ -96,6 +131,13 @@ class Settings(BaseSettings):
             problems.append("UPCYCLING_DATABASE_URL must not be the development database")
         if not (self.smtp_starttls or self.smtp_use_tls):
             problems.append("SMTP must use TLS (UPCYCLING_SMTP_STARTTLS or UPCYCLING_SMTP_USE_TLS)")
+        if self.storage_secret_access_key.get_secret_value() == DEV_STORAGE_SECRET:
+            problems.append("UPCYCLING_STORAGE_SECRET_ACCESS_KEY must not be the development value")
+        if not all(
+            url.startswith("https://")
+            for url in (self.storage_endpoint_url, self.storage_presign_endpoint_url)
+        ):
+            problems.append("Storage endpoints must use https")
         if problems:
             raise ValueError("Unsafe production configuration: " + "; ".join(problems))
         return self

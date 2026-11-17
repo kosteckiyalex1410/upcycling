@@ -5,9 +5,10 @@ PWA := @upcycling/expert-pwa
 LOCALE ?= uk
 
 .DEFAULT_GOAL := help
-.PHONY: help setup services-up services-down migrate seed-user dev-api dev-web \
+.PHONY: help setup services-up services-down migrate seed-user storage-init storage-sweep \
+	dev-api dev-web \
 	gen-client contract-check format lint typecheck test test-backend test-web test-e2e \
-	build docker-smoke check
+	build docker-smoke check iphone-up iphone-api iphone-check iphone-down
 
 help: ## List targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-16s %s\n", $$1, $$2}'
@@ -16,8 +17,9 @@ setup: ## Install backend and frontend dependencies from lockfiles
 	cd backend && uv sync --locked
 	$(PNPM) install --frozen-lockfile
 
-services-up: ## Start PostgreSQL and Mailpit (docker compose)
+services-up: ## Start PostgreSQL, Mailpit and S3-compatible storage; prepare the bucket
 	docker compose up -d --wait
+	cd backend && uv run python -m app.cli storage-init
 
 services-down: ## Stop local services (data volume is kept)
 	docker compose down
@@ -29,11 +31,29 @@ seed-user: ## Create the expert account: make seed-user EMAIL=you@example.com [L
 	@test -n "$(EMAIL)" || (echo "Usage: make seed-user EMAIL=you@example.com [LOCALE=uk]" && exit 1)
 	cd backend && uv run python -m app.cli create-user --email "$(EMAIL)" --locale "$(LOCALE)" --if-not-exists
 
+storage-init: ## Create the bucket and its browser-upload CORS rule (idempotent)
+	cd backend && uv run python -m app.cli storage-init
+
+storage-sweep: ## Purge deleted/stale photos and unreferenced storage objects
+	cd backend && uv run python -m app.cli storage-sweep
+
 dev-api: ## Run the API with reload on :8000
 	cd backend && uv run uvicorn app.main:create_app --factory --reload --port 8000 --timeout-keep-alive 75
 
 dev-web: ## Run the PWA dev server on :5173 (proxies /api)
 	$(PNPM) --filter $(PWA) dev
+
+iphone-up: ## HTTPS on the Wi-Fi for a real iPhone: build PWA, start proxy, storage CORS
+	PNPM="$(PNPM)" ./scripts/iphone.sh up
+
+iphone-api: ## Run the API for the iPhone setup (foreground, reload) on 127.0.0.1:8010
+	./scripts/iphone.sh api
+
+iphone-check: ## Check certificate, PWA, API and storage CORS of the iPhone setup
+	./scripts/iphone.sh check
+
+iphone-down: ## Stop the iPhone HTTPS proxy and restore localhost-only storage CORS
+	./scripts/iphone.sh down
 
 gen-client: ## Export OpenAPI and regenerate the TypeScript client
 	cd backend && uv run python -m scripts.export_openapi ../packages/api-client/openapi.json

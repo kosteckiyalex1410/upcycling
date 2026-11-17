@@ -27,5 +27,43 @@ services:
       - '127.0.0.1:1025:1025'
       - '127.0.0.1:8025:8025'
 
+  storage:
+    # S3-compatible object storage for photos (ADR-0006). Development credentials only.
+    image: chrislusf/seaweedfs:4.52
+    command: ['mini', '-dir=/data', '-ip.bind=0.0.0.0', '-admin.ui=false']
+    environment:
+      AWS_ACCESS_KEY_ID: upcycling-dev
+      AWS_SECRET_ACCESS_KEY: upcycling-dev-storage-secret
+    ports:
+      - '127.0.0.1:8333:8333' # S3 API; presigned uploads from the browser go here
+    volumes:
+      - storage:/data
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '-O', '/dev/null', 'http://127.0.0.1:8333/healthz']
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  iphone-proxy:
+    # HTTPS for testing on a real iPhone on the same Wi-Fi; started only by `make iphone-up`.
+    # The only service reachable from the LAN (all others bind to 127.0.0.1).
+    image: caddy:2.11.7-alpine
+    profiles: ['iphone']
+    environment:
+      UPCYCLING_LAN_HOST: ${UPCYCLING_LAN_HOST:-localhost}
+      UPCYCLING_IPHONE_API_PORT: ${UPCYCLING_IPHONE_API_PORT:-8010}
+    ports:
+      - '8443:8443' # PWA + API
+      - '8444:8444' # storage (presigned uploads)
+    volumes:
+      - ./infra/iphone/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./apps/expert-pwa/dist:/srv/pwa:ro
+      - iphone-ca:/data # development CA; keep it so the iPhone trust stays valid
+    depends_on:
+      storage:
+        condition: service_healthy
+
 volumes:
   pgdata:
+  storage:
+  iphone-ca:

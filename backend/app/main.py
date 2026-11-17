@@ -12,11 +12,12 @@ from fastapi.routing import APIRoute
 from app.api.errors import register_error_handlers
 from app.api.middleware import OriginCheckMiddleware, RequestContextMiddleware
 from app.api.v1.router import router as v1_router
-from app.application.ports import Clock, EmailSender, system_clock
+from app.application.ports import Clock, EmailSender, ObjectStorage, system_clock
 from app.config import Settings, get_settings
 from app.infrastructure.db.engine import create_engine, create_session_factory
 from app.infrastructure.email import SmtpEmailSender
 from app.infrastructure.logging import configure_logging
+from app.infrastructure.storage import S3ObjectStorage
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 API_PREFIX = "/api/v1"
@@ -38,6 +39,7 @@ def create_app(
     *,
     email_sender: EmailSender | None = None,
     clock: Clock | None = None,
+    storage: ObjectStorage | None = None,
 ) -> FastAPI:
     settings = settings or get_settings()
     if settings.environment != "test":
@@ -65,6 +67,7 @@ def create_app(
     app.state.session_factory = create_session_factory(engine)
     app.state.clock = clock or system_clock
     app.state.email_sender = email_sender or SmtpEmailSender(settings)
+    app.state.storage = storage or S3ObjectStorage(settings)
     app.state.expected_migration_head = _expected_migration_head()
 
     register_error_handlers(app)

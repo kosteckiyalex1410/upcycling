@@ -1,17 +1,17 @@
 # Claude Code — Project Operating Instructions
 
-**Project:** AI Fashion Upcycling Assistant  
-**Status:** Initial expert MVP  
+**Project:** Upcycling — AI Design Studio (Stage 1; the commercial Upcycling Assistant is Stage 2, later)  
+**Status:** Stage 1 in development (Slices 0–1.1 implemented)  
 **Documentation and code comments:** English  
 **Initial UI locales:** Ukrainian (`uk`) and English (`en`)
 
 ## 1. Mission and source of truth
 
-Build a reliable, iPhone-first expert application that analyzes garments, proposes feasible transformations, learns from explicitly recorded expert feedback, and preserves evidence for future model evaluation and training.
+Build a reliable, iPhone-first **AI Design Studio** in which a professional stylist works with AI: capture garments, analyze, propose feasible transformations, review and iterate, and preserve every observation, AI output, decision and correction with provenance so that expert knowledge can measurably improve future suggestions. The commercial Upcycling Assistant comes later and is out of scope until approved ([ADR-0008](docs/adr/0008-design-studio-first-and-expert-knowledge-architecture.md)).
 
 Read these files before planning work:
-1. `PRODUCT.md` — product scope and user journeys (baseline v0.2).
-2. `ARCHITECTURE.md` — system boundaries, API, data invariants, and delivery slices (baseline v0.1).
+1. `PRODUCT.md` — product strategy, scope and user journeys (v0.3).
+2. `ARCHITECTURE.md` — system boundaries, API, data invariants, expert-knowledge mechanisms and delivery slices (v0.4).
 3. Relevant ADRs in `docs/adr/` and the code/tests for the affected feature.
 
 If a referenced document is missing, **report the gap**; do not fabricate its contents. If requirements conflict, explain the conflict and propose a specific resolution before implementation. This file governs the development workflow; product and architecture documents govern intended behavior and system design.
@@ -101,7 +101,12 @@ Final implementation report must include:
 - Separate AI-inferred labels, expert corrections, expert-confirmed labels, and uncertain/unreviewed annotations.
 - Fabric composition, stretch, weight, and hidden construction may be unknown from images; represent uncertainty instead of inventing facts.
 - Do not present uncalibrated model confidence as statistical certainty.
-- Do not automatically fine-tune or change deployed model weights from incoming feedback.
+- Do not automatically fine-tune or change deployed model weights from incoming feedback. Saving feedback is not training.
+- Keep the three expert-knowledge mechanisms distinct: within-project context adaptation, cross-project expert memory (retrieval/rules/ranking), and explicit training. Never describe the system as "self-learning" unless training exists and has been evaluated.
+- Keep five knowledge sources separate: AI predictions, expert observations, expert corrections, expert preferences/decisions, verified facts/outcomes. Structured labels extracted by AI from expert words are separate, marked as unreviewed, and never replace the original words.
+- Every AI generation records model, prompt version, parameters, input references and the expert knowledge it used.
+- Generated proposal images are AI visualizations: always labelled as such, stored immutably and privately with provenance, never treated as evidence of feasibility or as photos of a real outcome (ADR-0009).
+- Measure improvements against a frozen evaluation set (baseline vs. project feedback vs. cross-project memory); acceptance rate alone is not a success metric.
 - Dataset exports must have immutable manifests, versioning, selection criteria, provenance, and leakage-aware evaluation splits.
 - Do not introduce model training, a vector database, or a model registry until a concrete slice and evaluation justify it.
 
@@ -132,19 +137,21 @@ Create an ADR under `docs/adr/` for decisions that change a durable system bound
 - Consequences, risks, and reversibility.
 - Date and status (`proposed`, `accepted`, or `superseded`).
 
-**Open decisions — do not silently lock in:** hosting/object storage provider; production email provider; initial VLM/speech providers; hard offline requirement; data retention and training consent; defect geometry and fabric taxonomy. See `ARCHITECTURE.md` §12. Authentication is decided in ADR-0003.
+**Open decisions — do not silently lock in:** hosting/object storage provider; production email provider; initial VLM/speech/image-generation providers; hard offline requirement; data retention and training consent; defect geometry and fabric taxonomy; project vs. garment cardinality; cross-project memory approach; Stage 2 scope and data reuse. See `ARCHITECTURE.md` §12. Authentication is decided in ADR-0003; the photo upload/storage protocol (provider-independent) in ADR-0006; voice notes in ADR-0007; the Design Studio strategy and expert-knowledge architecture in ADR-0008; proposal visualizations and versioned iterations in ADR-0009.
 
 ## 9. Delivery order and definition of done
 
-Follow the approved vertical-slice order:
+Follow the vertical-slice order (details and status: `ARCHITECTURE.md` §11, [ADR-0008](docs/adr/0008-design-studio-first-and-expert-knowledge-architecture.md)); implement only the current slice:
 
-0. Foundation: repository, dev environment, CI, formatting, migrations, health check, basic auth/i18n, OpenAPI client.
-1. Garment capture and persistence.
-2. Async AI garment analysis.
-3. Transformation recommendations.
-4. Expert decisions, voice feedback, and interactive refinement.
-5. Transformation plans and actual before/after outcomes.
-6. Curated dataset export and evaluation foundation.
+0. Foundation.
+1. Garment capture and persistence. 1.1 Mobile capture UX and voice notes.
+2. AI garment analysis.
+3. AI transformation suggestions + generated visualizations (every proposal has text and an image; ADR-0009).
+4. Expert review and iterative regeneration (within-project adaptation, transcription).
+5. Cross-project expert memory (simplest measurable approach first, with a baseline comparison).
+6. Evaluation and dataset preparation.
+7. Real transformation outcomes (before/after).
+8. Commercial Upcycling Assistant (Stage 2; separate approval).
 
 A slice is **done** only when its user-visible path works end-to-end, failure paths are covered, relevant tests pass, security/ownership checks are applied, docs/contracts are updated, and remaining manual verification is explicitly recorded. Do not claim production readiness merely because a demo works locally.
 

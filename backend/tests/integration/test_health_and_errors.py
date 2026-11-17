@@ -66,6 +66,8 @@ async def test_docs_disabled_in_production(make_settings: Callable[..., Settings
         smtp_host="smtp.example",
         smtp_from="Upcycling <no-reply@upcycling.example>",
         smtp_starttls=True,
+        storage_endpoint_url="https://s3.storage.example",
+        storage_secret_access_key=SecretStr("s" * 40),
     )
     production_app = create_app(settings)
     async with httpx.AsyncClient(

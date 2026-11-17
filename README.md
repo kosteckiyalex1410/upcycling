@@ -1,8 +1,8 @@
-# Upcycling — AI Fashion Upcycling Assistant
+# Upcycling — AI Design Studio
 
-An iPhone-first expert application that analyzes garments, proposes feasible transformations, and records expert feedback as evidence for future model evaluation.
+An iPhone-first, internal expert platform in which a professional stylist works with AI on real garments: capture, analysis, transformation suggestions, review and iteration. Every observation, AI output and expert decision is kept with provenance so that expert knowledge can measurably improve future suggestions. A commercial Upcycling Assistant is a later stage ([ADR-0008](docs/adr/0008-design-studio-first-and-expert-knowledge-architecture.md), [PRODUCT.md](PRODUCT.md)).
 
-**Status:** Slice 0 (foundation) — authentication, localization (`uk`/`en`), API contract and quality gates. No garment features yet.
+**Status:** Slice 1.1 — compact mobile capture (category chips that stay selected, take/choose photos, one gallery with category labels, recategorize later, JPEG/PNG/HEIC, presigned uploads to S3-compatible storage, previews, retry, safe deletion) and voice notes (record, review, save, play, delete; original audio kept privately; no transcription yet) on top of the Slice 0 foundation (authentication, `uk`/`en`, API contract, quality gates). No AI analysis yet.
 
 | Document | Purpose |
 |---|---|
@@ -19,15 +19,16 @@ An iPhone-first expert application that analyzes garments, proposes feasible tra
 backend/                 FastAPI modular monolith (Python 3.13, uv)
   app/api/v1/            HTTP routing and validation
   app/domain/            Domain concepts and invariants
-  app/application/       Use cases (auth, users) and ports
-  app/infrastructure/    PostgreSQL, SMTP, logging
+  app/application/       Use cases (auth, users, garments/photos) and ports
+  app/infrastructure/    PostgreSQL, SMTP, S3 storage, image processing, logging
   app/locales/           Server-generated text (emails) in uk/en
   migrations/            Alembic migrations
 packages/api-client/     TypeScript client generated from OpenAPI (committed)
 apps/expert-pwa/         React + Vite PWA (Node.js 24, pnpm)
 docs/adr/                Architecture decision records
-scripts/                 Contract drift check, Docker smoke test
-compose.yaml             Local PostgreSQL 18 + Mailpit
+scripts/                 Contract drift check, Docker smoke test, CI storage, iPhone HTTPS setup
+infra/iphone/            Caddy config for testing on a real iPhone over the local Wi-Fi
+compose.yaml             Local PostgreSQL 18, Mailpit, SeaweedFS; optional iPhone HTTPS proxy
 ```
 
 ## Quick start
@@ -35,7 +36,7 @@ compose.yaml             Local PostgreSQL 18 + Mailpit
 ```bash
 cp .env.example .env
 make setup            # uv sync + pnpm install
-make services-up      # PostgreSQL :55432, Mailpit :1025 / UI :8025
+make services-up      # PostgreSQL :55432, Mailpit :1025 / UI :8025, storage :8333
 make migrate
 make seed-user EMAIL=you@example.com
 make dev-api          # terminal 1 — http://localhost:8000/api/v1/docs

@@ -8,15 +8,19 @@ type Message = { Text: string };
 /** Waits for the newest email to `to` in Mailpit and returns its link and code. */
 export async function latestLoginEmail(request: APIRequestContext, to: string) {
   let messageId = '';
+  // Mailpit indexes new messages asynchronously; allow for slow runners.
   await expect
-    .poll(async () => {
-      const response = await request.get(`${MAILPIT_URL}/api/v1/search`, {
-        params: { query: `to:"${to}"` },
-      });
-      const result = (await response.json()) as SearchResult;
-      messageId = result.messages[0]?.ID ?? '';
-      return messageId;
-    })
+    .poll(
+      async () => {
+        const response = await request.get(`${MAILPIT_URL}/api/v1/search`, {
+          params: { query: `to:"${to}"` },
+        });
+        const result = (await response.json()) as SearchResult;
+        messageId = result.messages[0]?.ID ?? '';
+        return messageId;
+      },
+      { timeout: 15_000 },
+    )
     .not.toBe('');
   const message = (await (
     await request.get(`${MAILPIT_URL}/api/v1/message/${messageId}`)

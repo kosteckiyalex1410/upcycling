@@ -15,4 +15,10 @@ export const BACKEND_ENV: Record<string, string> = {
   UPCYCLING_SMTP_PORT: '1025',
   UPCYCLING_LOGIN_RATE_LIMIT_PER_EMAIL: '1000',
   UPCYCLING_LOGIN_RATE_LIMIT_PER_IP: '1000',
+  // Separate bucket; `storage-init` (global setup) allows browser uploads from PWA_ORIGIN.
+  UPCYCLING_STORAGE_ENDPOINT_URL:
+    process.env.UPCYCLING_E2E_STORAGE_ENDPOINT ?? 'http://localhost:8333',
+  UPCYCLING_STORAGE_BUCKET: 'upcycling-e2e',
+  UPCYCLING_STORAGE_ACCESS_KEY_ID: 'upcycling-dev',
+  UPCYCLING_STORAGE_SECRET_ACCESS_KEY: 'upcycling-dev-storage-secret',
 };

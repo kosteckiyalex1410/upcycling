@@ -25,6 +25,9 @@ playwright-report/
 test-results/
 blob-report/
 
+# iPhone test setup (development CA certificate export)
+.dev-iphone/
+
 # OS / editors
 .DS_Store
 .idea/

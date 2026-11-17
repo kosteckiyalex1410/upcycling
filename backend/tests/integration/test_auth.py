@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 import uuid
 from collections.abc import Callable
 
@@ -322,7 +323,7 @@ def _unsafe_api_routes(app: FastAPI) -> list[tuple[str, str]]:
     for path, operations in app.openapi()["paths"].items():
         for method in operations:
             if method.upper() in {"POST", "PUT", "PATCH", "DELETE"}:
-                routes.append((method.upper(), path.replace("{challenge_id}", str(uuid.uuid4()))))
+                routes.append((method.upper(), re.sub(r"\{[^}]+\}", str(uuid.uuid4()), path)))
     return routes
 
 
@@ -338,7 +339,7 @@ async def test_every_state_changing_endpoint_rejects_foreign_origins(
     await login(client, email_sender)
     session_cookie = client.cookies.get("__Host-upcycling_session") or ""
     routes = _unsafe_api_routes(app)
-    assert len(routes) >= 6
+    assert len(routes) >= 12
     headers = {"Origin": origin} if origin else {}
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app),

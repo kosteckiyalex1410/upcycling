@@ -98,6 +98,129 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/garments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Garments */
+        get: operations["list_garments"];
+        put?: never;
+        /** Create Garment */
+        post: operations["create_garment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/garments/{garment_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Garment */
+        get: operations["get_garment"];
+        put?: never;
+        post?: never;
+        /** Delete Garment */
+        delete: operations["delete_garment"];
+        options?: never;
+        head?: never;
+        /** Update Garment */
+        patch: operations["update_garment"];
+        trace?: never;
+    };
+    "/api/v1/garments/{garment_id}/media/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Complete Media Upload
+         * @description Verify the uploaded bytes and register the photo. Returns it as `ready` or `rejected`
+         *     (with `error_code`); `upload_incomplete` (409) if the bytes have not arrived yet.
+         *     Safe to repeat.
+         */
+        post: operations["complete_media_upload"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/garments/{garment_id}/media/uploads": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Media Upload
+         * @description Register a photo and get a presigned PUT for its bytes. Calling again with the same
+         *     `client_upload_id` returns the same photo with a fresh URL while it is pending.
+         */
+        post: operations["create_media_upload"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/garments/{garment_id}/voice-notes/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Complete Voice Note Upload
+         * @description Verify the uploaded recording (size, SHA-256, container, codec, real duration).
+         *     Returns it as `ready` or `rejected` (with `error_code`); `upload_incomplete` (409) if
+         *     the bytes have not arrived yet. Safe to repeat.
+         */
+        post: operations["complete_voice_note_upload"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/garments/{garment_id}/voice-notes/uploads": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Voice Note Upload
+         * @description Register a recording and get a presigned PUT for its bytes. Calling again with the
+         *     same `client_upload_id` returns the same note with a fresh URL while it is pending.
+         */
+        post: operations["create_voice_note_upload"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/health": {
         parameters: {
             query?: never;
@@ -156,10 +279,214 @@ export interface paths {
         patch: operations["update_me"];
         trace?: never;
     };
+    "/api/v1/media/{media_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Media */
+        delete: operations["delete_media"];
+        options?: never;
+        head?: never;
+        /** Update Media */
+        patch: operations["update_media"];
+        trace?: never;
+    };
+    "/api/v1/media/{media_id}/original": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Media Original
+         * @description Original bytes exactly as uploaded (may contain EXIF/GPS metadata), as a download.
+         */
+        get: operations["get_media_original"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/media/{media_id}/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Media Preview
+         * @description ~1600 px JPEG, orientation applied, all metadata removed.
+         */
+        get: operations["get_media_preview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/media/{media_id}/thumbnail": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Media Thumbnail
+         * @description ~400 px JPEG, orientation applied, all metadata removed.
+         */
+        get: operations["get_media_thumbnail"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/voice-notes/{voice_note_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Voice Note
+         * @description Permanently delete the recording and its metadata.
+         */
+        delete: operations["delete_voice_note"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/voice-notes/{voice_note_id}/audio": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Voice Note Audio
+         * @description The original recording, for playback. Supports a single HTTP byte range, which
+         *     Safari requires for `<audio>`.
+         */
+        get: operations["get_voice_note_audio"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** CompleteUploadRequest */
+        CompleteUploadRequest: {
+            /**
+             * Media Id
+             * Format: uuid
+             */
+            media_id: string;
+        };
+        /** CompleteVoiceNoteRequest */
+        CompleteVoiceNoteRequest: {
+            /**
+             * Voice Note Id
+             * Format: uuid
+             */
+            voice_note_id: string;
+        };
+        /** CreateGarmentRequest */
+        CreateGarmentRequest: {
+            /**
+             * Client Request Id
+             * Format: uuid
+             * @description Idempotency key; retries reuse it.
+             */
+            client_request_id: string;
+            /** Notes */
+            notes?: string | null;
+            /** Title */
+            title?: string | null;
+        };
+        /** CreateUploadRequest */
+        CreateUploadRequest: {
+            /** @description Optional; set later. */
+            category?: components["schemas"]["MediaCategory"] | null;
+            /**
+             * Client Upload Id
+             * Format: uuid
+             * @description Idempotency key; retries reuse it.
+             */
+            client_upload_id: string;
+            /**
+             * Content Type
+             * @description image/jpeg, image/png, image/heic…
+             */
+            content_type: string;
+            /** Filename */
+            filename?: string | null;
+            /**
+             * Sha256
+             * @description Lowercase hex SHA-256.
+             */
+            sha256: string;
+            /** Size Bytes */
+            size_bytes: number;
+        };
+        /** CreateVoiceNoteUploadRequest */
+        CreateVoiceNoteUploadRequest: {
+            /**
+             * Client Upload Id
+             * Format: uuid
+             * @description Idempotency key; retries reuse it.
+             */
+            client_upload_id: string;
+            /**
+             * Content Type
+             * @description `MediaRecorder.mimeType`: audio/mp4 or audio/webm…
+             */
+            content_type: string;
+            /**
+             * Duration Ms
+             * @description Duration measured while recording (informational).
+             */
+            duration_ms?: number | null;
+            /**
+             * Recorded At
+             * @description When recording started.
+             */
+            recorded_at?: string | null;
+            /**
+             * Sha256
+             * @description Lowercase hex SHA-256.
+             */
+            sha256: string;
+            /** Size Bytes */
+            size_bytes: number;
+        };
         /** ErrorBody */
         ErrorBody: {
             /**
@@ -201,6 +528,75 @@ export interface components {
         /** ErrorResponse */
         ErrorResponse: {
             error: components["schemas"]["ErrorBody"];
+        };
+        /** Garment */
+        Garment: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Media
+             * @description Photos including pending and rejected ones.
+             */
+            media: components["schemas"]["MediaAsset"][];
+            /** Notes */
+            notes: string | null;
+            /** Title */
+            title: string | null;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /**
+             * Voice Notes
+             * @description Voice recordings including pending and rejected ones.
+             */
+            voice_notes: components["schemas"]["VoiceNote"][];
+        };
+        /** GarmentPage */
+        GarmentPage: {
+            /** Items */
+            items: components["schemas"]["GarmentSummary"][];
+            /**
+             * Next Cursor
+             * @description Pass as `cursor` for the next page.
+             */
+            next_cursor: string | null;
+        };
+        /** GarmentSummary */
+        GarmentSummary: {
+            /** Cover Thumbnail Url */
+            cover_thumbnail_url: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Photo Count
+             * @description Ready photos.
+             */
+            photo_count: number;
+            /** Title */
+            title: string | null;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
         };
         /** HealthResponse */
         HealthResponse: {
@@ -250,6 +646,107 @@ export interface components {
             id: string;
             preferred_locale: components["schemas"]["Locale"];
         };
+        /** MediaAsset */
+        MediaAsset: {
+            /** @description Null until the expert assigns one. */
+            category: components["schemas"]["MediaCategory"] | null;
+            /** Completed At */
+            completed_at: string | null;
+            /**
+             * Content Type
+             * @description Detected from the bytes; set when ready.
+             */
+            content_type: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Error Code
+             * @description Set when `status` is `rejected`.
+             */
+            error_code: string | null;
+            /**
+             * Garment Id
+             * Format: uuid
+             */
+            garment_id: string;
+            /** Height */
+            height: number | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Original Filename */
+            original_filename: string | null;
+            /**
+             * Original Url
+             * @description Original bytes as uploaded (download).
+             */
+            original_url: string | null;
+            /**
+             * Preview Url
+             * @description Same-origin, authenticated; ~1600 px JPEG.
+             */
+            preview_url: string | null;
+            /**
+             * Sha256
+             * @description Hex SHA-256 of the stored original.
+             */
+            sha256: string | null;
+            /** Size Bytes */
+            size_bytes: number | null;
+            status: components["schemas"]["MediaStatus"];
+            /**
+             * Thumbnail Url
+             * @description Same-origin, authenticated; ~400 px JPEG.
+             */
+            thumbnail_url: string | null;
+            /**
+             * Width
+             * @description Displayed width (EXIF orientation applied).
+             */
+            width: number | null;
+        };
+        /**
+         * MediaCategory
+         * @description What the photo shows. Stable, language-neutral values (persisted and in the API).
+         * @enum {string}
+         */
+        MediaCategory: "front" | "back" | "detail" | "fabric" | "defect" | "label";
+        /**
+         * MediaStatus
+         * @enum {string}
+         */
+        MediaStatus: "pending" | "ready" | "rejected";
+        /** PresignedUpload */
+        PresignedUpload: {
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+            /**
+             * Headers
+             * @description Send exactly these headers with the body.
+             */
+            headers: {
+                [key: string]: string;
+            };
+            /**
+             * Method
+             * @default PUT
+             * @constant
+             */
+            method: "PUT";
+            /**
+             * Url
+             * @description Short-lived URL on the object storage origin.
+             */
+            url: string;
+        };
         /** ReadinessResponse */
         ReadinessResponse: {
             /**
@@ -259,9 +756,30 @@ export interface components {
              */
             status: "ready";
         };
+        /**
+         * UpdateGarmentRequest
+         * @description Only fields present are changed; `null` clears a field.
+         */
+        UpdateGarmentRequest: {
+            /** Notes */
+            notes?: string | null;
+            /** Title */
+            title?: string | null;
+        };
         /** UpdateMeRequest */
         UpdateMeRequest: {
             preferred_locale: components["schemas"]["Locale"];
+        };
+        /** UpdateMediaRequest */
+        UpdateMediaRequest: {
+            /** @description `null` removes the category. */
+            category: components["schemas"]["MediaCategory"] | null;
+        };
+        /** UploadTicketResponse */
+        UploadTicketResponse: {
+            media: components["schemas"]["MediaAsset"];
+            /** @description Null once the photo is not pending. */
+            upload: components["schemas"]["PresignedUpload"] | null;
         };
         /** VerifyCodeRequest */
         VerifyCodeRequest: {
@@ -272,6 +790,70 @@ export interface components {
         VerifyTokenRequest: {
             /** Token */
             token: string;
+        };
+        /** VoiceNote */
+        VoiceNote: {
+            /**
+             * Audio Url
+             * @description Same-origin, authenticated, supports HTTP Range (for <audio>).
+             */
+            audio_url: string | null;
+            /**
+             * Codec
+             * @description `aac` or `opus`; set when ready.
+             */
+            codec: string | null;
+            /** Completed At */
+            completed_at: string | null;
+            /**
+             * Content Type
+             * @description Container detected from the bytes.
+             */
+            content_type: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Duration Ms
+             * @description Measured by the server; set when ready.
+             */
+            duration_ms: number | null;
+            /**
+             * Error Code
+             * @description Set when `status` is `rejected`.
+             */
+            error_code: string | null;
+            /**
+             * Garment Id
+             * Format: uuid
+             */
+            garment_id: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Recorded At
+             * @description Device time when recording started.
+             */
+            recorded_at: string | null;
+            /**
+             * Sha256
+             * @description Hex SHA-256 of the stored original recording.
+             */
+            sha256: string | null;
+            /** Size Bytes */
+            size_bytes: number | null;
+            status: components["schemas"]["MediaStatus"];
+        };
+        /** VoiceNoteUploadTicket */
+        VoiceNoteUploadTicket: {
+            /** @description Null once the note is not pending. */
+            upload: components["schemas"]["PresignedUpload"] | null;
+            voice_note: components["schemas"]["VoiceNote"];
         };
     };
     responses: never;
@@ -437,6 +1019,315 @@ export interface operations {
             };
         };
     };
+    list_garments: {
+        parameters: {
+            query?: {
+                cursor?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GarmentPage"];
+                };
+            };
+            /** @description Error (see `error.code`). */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    create_garment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateGarmentRequest"];
+            };
+        };
+        responses: {
+            /** @description Replay of an earlier create. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Garment"];
+                };
+            };
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Garment"];
+                };
+            };
+            /** @description Error (see `error.code`). */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_garment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                garment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Garment"];
+                };
+            };
+            /** @description Error (see `error.code`). */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    delete_garment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                garment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error (see `error.code`). */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    update_garment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                garment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateGarmentRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Garment"];
+                };
+            };
+            /** @description Error (see `error.code`). */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    complete_media_upload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                garment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CompleteUploadRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MediaAsset"];
+                };
+            };
+            /** @description Error (see `error.code`). */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    create_media_upload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                garment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateUploadRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UploadTicketResponse"];
+                };
+            };
+            /** @description Error (see `error.code`). */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    complete_voice_note_upload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                garment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CompleteVoiceNoteRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VoiceNote"];
+                };
+            };
+            /** @description Error (see `error.code`). */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    create_voice_note_upload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                garment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateVoiceNoteUploadRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VoiceNoteUploadTicket"];
+                };
+            };
+            /** @description Error (see `error.code`). */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     get_health: {
         parameters: {
             query?: never;
@@ -545,6 +1436,265 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["MeResponse"];
                 };
+            };
+            /** @description Error (see `error.code`). */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    delete_media: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                media_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error (see `error.code`). */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    update_media: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                media_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateMediaRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MediaAsset"];
+                };
+            };
+            /** @description Error (see `error.code`). */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_media_original: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                media_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Image bytes. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/*": unknown;
+                };
+            };
+            /** @description Not modified (matching `If-None-Match`). */
+            304: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error (see `error.code`). */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_media_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                media_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Image bytes. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/*": unknown;
+                };
+            };
+            /** @description Not modified (matching `If-None-Match`). */
+            304: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error (see `error.code`). */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_media_thumbnail: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                media_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Image bytes. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/*": unknown;
+                };
+            };
+            /** @description Not modified (matching `If-None-Match`). */
+            304: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error (see `error.code`). */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    delete_voice_note: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                voice_note_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error (see `error.code`). */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_voice_note_audio: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                voice_note_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Audio bytes. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "audio/*": unknown;
+                };
+            };
+            /** @description Requested byte range. */
+            206: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not modified (matching `If-None-Match`). */
+            304: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Range not satisfiable. */
+            416: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Error (see `error.code`). */
             default: {
