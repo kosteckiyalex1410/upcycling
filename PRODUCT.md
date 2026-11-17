@@ -1,8 +1,8 @@
-# AI FASHION UPCYCLING ASSISTANT
-## Product Specification v0.2
+# UPCYCLING — AI DESIGN STUDIO
+## Product Specification v0.3
 
 **Status:** Draft  
-**Stage:** Expert MVP  
+**Stage:** Stage 1 — AI Design Studio (internal expert platform); see [ADR-0008](docs/adr/0008-design-studio-first-and-expert-knowledge-architecture.md)  
 **Documentation language:** English  
 **Initial UI languages:** Ukrainian and English  
 **Initial expert users:** 1  
@@ -12,53 +12,65 @@
 
 ## 1. PRODUCT VISION
 
-AI Fashion Upcycling Assistant is an AI-powered platform that helps transform existing garments into more desirable, functional, and aesthetically appealing products.
+Upcycling helps transform existing garments into more desirable, functional and aesthetically appealing products.
 
-The platform analyzes garment photographs, identifies construction details, visual fabric characteristics, and visible defects, and recommends potential garment modifications.
+**We are building an expert-driven AI Design Studio that systematically captures professional knowledge and improves AI-assisted garment transformation recommendations. The commercial Upcycling Assistant comes later, after the underlying AI workflow has been validated.**
 
-The long-term objective is to develop specialized Fashion AI capabilities supported by proprietary expert-annotated datasets.
+The Design Studio is not only an idea generator. Its goals are to:
 
-The initial product is an expert-facing application designed to collect high-quality human feedback while validating AI-generated transformation recommendations.
+1. Provide a complete, end-to-end AI-assisted upcycling workflow for a professional stylist.
+2. Capture professional expertise through natural interaction (photos, voice, short decisions).
+3. Collect high-quality, structured expert feedback with full provenance.
+4. Build a reusable knowledge base of garment analyses, design decisions and transformation constraints.
+5. Continuously evaluate AI recommendations against that knowledge.
+6. Develop an AI system that measurably benefits from accumulated expert knowledge.
 
 ---
 
-## 2. PRODUCT ROADMAP
+## 2. PRODUCT STRATEGY AND ROADMAP
 
-### Phase 1 — Expert MVP
+### Stage 1 — AI Design Studio (current focus)
 
-A mobile-first application for professional fashion designers.
+An internal, iPhone-first expert platform. One professional stylist and upcycling expert works with AI on real garments, typically in secondhand stores. This is the only current development focus and is not the initial commercial product.
 
-Core capabilities:
+### Stage 2 — Commercial Upcycling Assistant (later)
 
-- Garment photography and project creation.
-- AI-powered garment analysis.
-- Transformation recommendations.
-- Interactive AI conversations.
-- Recommendation approval and rejection.
-- Voice-based expert feedback.
-- Expert corrections.
-- Custom transformation suggestions.
-- Before/after documentation.
-- Structured expert data collection.
+A product for consumers and other users to evaluate garments and discover realistic upcycling opportunities (working names: *Upcycling Assistant*, *Shopping Assistant*; final name undecided). It starts only when the Studio workflow is validated **and** evaluation shows measurable improvement from expert knowledge. It reuses the Studio's backend services, AI capabilities, knowledge base and evaluation tooling, and needs its own specification, privacy review and approval. Consumer and shopping features are not prioritized now.
 
-### Phase 2 — Specialized Fashion AI
+Specialized fashion AI (task-specific models, retrieval, fine-tuning — formerly "Phase 2") is part of Stage 1 and is introduced only where evaluation justifies it.
 
-Develop and improve specialized capabilities for:
+### Delivery slices
 
-- Garment Understanding.
-- Fabric and Texture Understanding.
-- Garment Defect Detection.
-- Transformation Recommendation and Ranking.
+| Slice | Scope | Status |
+|---|---|---|
+| 0 | Foundation | Done |
+| 1 | Garment capture & persistence | Implemented (PR #2) |
+| 1.1 | Unified photo gallery & voice notes | Implemented (PR #2); real-iPhone verification pending |
+| 2 | AI garment analysis | Next |
+| 3 | AI upcycling suggestions | Planned |
+| 4 | Expert review & iterative design | Planned |
+| 5 | Cross-project expert memory | Planned |
+| 6 | Evaluation & dataset preparation | Planned |
+| 7 | Real transformation outcomes (before/after) | Planned |
+| 8 | Commercial Upcycling Assistant (Stage 2) | Requires separate approval |
 
-Introduce retrieval, task-specific models, and fine-tuning where supported and justified by evaluation results.
+Technical scope per slice: `ARCHITECTURE.md` §11. The list is a plan, not permission to implement ahead of the current slice.
 
-### Phase 3 — Consumer Application
+### Current implementation status
 
-Expand the platform into a consumer-facing mobile application.
-
-Potential capabilities include garment transformation visualization, personalized recommendations, repair guidance, and wardrobe upcycling.
-
-These capabilities require separate product validation.
+| Capability | Status |
+|---|---|
+| Sign-in (email link / 6-digit code), `uk`/`en` | Implemented |
+| Projects, photo capture, one gallery, optional categories | Implemented |
+| Voice notes (original audio stored; playback; deletion) | Implemented; iPhone recording not yet verified on a device |
+| Typed project notes | Implemented |
+| Transcription of voice notes | Planned (Slice 4; Slice 2 may transcribe for analysis context) |
+| AI garment analysis, suggestions, iterative refinement | Planned (Slices 2–4) |
+| Cross-project expert memory | Planned (Slice 5); approach to be chosen by evaluation |
+| Evaluation framework, dataset exports | Planned (Slice 6) |
+| Model fine-tuning | Not planned until justified by evaluation |
+| Before/after outcomes | Planned (Slice 7) |
+| Commercial assistant | Stage 2, not started |
 
 ---
 
@@ -66,7 +78,7 @@ These capabilities require separate product validation.
 
 ### Initial User
 
-One professional fashion designer.
+One professional stylist and upcycling expert (Stage 1).
 
 The initial application must support a single expert without introducing unnecessary multi-user administration.
 
@@ -74,85 +86,48 @@ However, the architecture must allow future expansion to multiple experts.
 
 ### Future Users
 
-- Fashion designers.
-- Upcycling specialists.
-- Tailors.
-- Resellers.
-- Consumers interested in clothing transformation.
+- Stage 1: additional fashion designers, upcycling specialists and tailors as experts.
+- Stage 2: consumers, resellers and other users of the commercial assistant.
 
 ---
 
 ## 4. PRIMARY USER JOURNEY
 
-### Scenario: A Designer Visits a Secondhand Store
+### Scenario: A stylist works on a garment in a secondhand store
 
-**Step 1 — Capture Garment**
+The workflow is iterative: a project may have several analyses, several suggestion batches, many expert decisions and revisions. One analysis or one generation is never assumed to be enough.
 
-The designer opens the application on an iPhone and creates a new garment project.
+**Step 1 — Create a project and capture the garment** *(implemented)*
 
-The designer captures multiple photographs:
+The stylist creates a design project on an iPhone and takes several photos in a row without choosing categories (front, back, details, fabric, defects, labels). Categories can be assigned later.
 
-- Front view.
-- Back view.
-- Construction details.
-- Fabric close-ups.
-- Visible defects.
-- Labels, when available.
+**Step 2 — Record observations** *(implemented: audio and text are stored; transcription planned)*
 
-**Step 2 — AI Analysis**
+The stylist optionally records voice notes ("A men's wool blazer from the 1990s; the lining is damaged…") or types short notes.
 
-The AI analyzes the available photographs and produces structured garment information.
+**Step 3 — AI analysis** *(planned, Slice 2)*
 
-The analysis may include:
+The AI analyzes the photos (and available notes) and produces structured garment information: garment type, construction elements, visible fabric characteristics, potential defects, and explicitly uncertain attributes. It may ask for more photos or clarification.
 
-- Garment category.
-- Construction elements.
-- Visible fabric characteristics.
-- Potential defects.
-- Uncertain attributes.
+**Step 4 — AI suggestions** *(planned, Slice 3)*
 
-The AI may request additional photographs or expert clarification.
+The AI generates several possible transformations. Each includes the target garment element, proposed modification, expected aesthetic effect, technical feasibility assessment, risks and explanation.
 
-**Step 3 — Initial Recommendations**
+**Step 5 — Expert review** *(planned, Slice 4)*
 
-The AI generates relevant transformation suggestions.
+For each suggestion the stylist can approve, reject, modify, add feedback (voice or text), propose an alternative idea, or request regeneration. Optional one-tap rejection reasons: insufficient fabric, unsuitable material, construction limitations, excessive complexity, poor aesthetic result, other. No complex forms.
 
-Each recommendation includes:
+**Step 6 — Iterative refinement** *(planned, Slice 4)*
 
-- Target garment element.
-- Proposed modification.
-- Expected aesthetic effect.
-- Technical feasibility assessment.
-- Potential risks.
-- Explanation.
+The AI generates revised suggestions that take the feedback and the project history into account (e.g. "Keep the sleeves. I want a more avant-garde transformation."). Revised suggestions are new versions; earlier suggestions and decisions remain unchanged.
 
-**Step 4 — Expert Evaluation**
+**Step 7 — Expert knowledge for future projects** *(planned, Slice 5)*
 
-The designer can:
+Relevant knowledge from earlier projects (e.g. the stylist repeatedly rejects corsets when the fabric lacks structure) becomes available when analyzing new garments.
 
-- Approve a recommendation.
-- Reject a recommendation.
-- Record a voice comment.
-- Correct garment attributes.
-- Suggest an alternative transformation.
+**Step 8 — Actual transformation** *(planned, Slice 7)*
 
-**Step 5 — Interactive AI Refinement**
-
-After receiving feedback, the AI can reconsider previous recommendations and generate improved alternatives.
-
-The system must preserve the full interaction history.
-
-Expert feedback should influence the current conversation immediately without automatically modifying model weights.
-
-**Step 6 — Save Project**
-
-All photographs, AI outputs, expert decisions, and conversation history are persisted.
-
-**Step 7 — Document Actual Transformation**
-
-The designer can reopen a project and upload photographs of the modified garment.
-
-The application associates the final result with the original garment and its transformation history.
+The stylist documents the realized transformation with before/after photos.
 
 ---
 
@@ -160,27 +135,19 @@ The application associates the final result with the original garment and its tr
 
 ### IA-01 — Context Preservation
 
-The AI must maintain access to the current garment context throughout the interaction.
+The AI must maintain access to the current project context throughout the interaction.
 
 ### IA-02 — Iterative Recommendations
 
-The AI must generate updated recommendations based on expert feedback.
+The AI must generate updated recommendations based on expert feedback, over as many iterations as needed.
 
 ### IA-03 — Voice Interaction
 
-The designer must be able to record voice feedback.
-
-Audio is transcribed and provided to the AI as conversational context.
+The stylist must be able to record voice notes and voice feedback. The original audio is always kept; machine transcripts and expert-corrected transcripts are separate records. Transcripts are provided to the AI as context.
 
 ### IA-04 — Structured Feedback
 
-The system must preserve:
-
-- Original recommendation.
-- Expert decision.
-- Expert explanation.
-- AI interpretation.
-- Updated recommendation.
+The system must preserve the original suggestion, the expert decision, the expert's original words, any structured labels (marked as expert-selected or AI-extracted), the AI's interpretation, and the revised suggestion.
 
 ### IA-05 — Conversation History
 
@@ -192,26 +159,34 @@ Corrections must not overwrite the original AI predictions.
 
 ### IA-07 — Human Authority
 
-Expert decisions must remain distinguishable from AI-generated suggestions.
+Expert decisions must remain distinguishable from AI-generated suggestions. The AI must not silently reinterpret a rejected recommendation as approved, and voice interpretation must not silently change a decision.
 
-The AI must not silently reinterpret a rejected recommendation as approved.
+### IA-08 — How the AI uses expert knowledge
+
+Three different mechanisms, which the product must never conflate ([ADR-0008](docs/adr/0008-design-studio-first-and-expert-knowledge-architecture.md)):
+
+- **Within-project adaptation:** feedback and history of the same project are included in the next generation's context. No model training.
+- **Cross-project expert memory:** relevant knowledge from other projects is retrieved (structured rules, similar cases, preferences) and used as context or for ranking. No model training.
+- **Model training / fine-tuning:** only with sufficient validated, consented data and an evaluation that justifies it.
+
+Saving feedback does not train the AI. The product must not be described as "self-learning" unless a training mechanism exists and its effect has been measured.
 
 ---
 
-## 6. BEFORE/AFTER DOCUMENTATION
+## 6. BEFORE/AFTER DOCUMENTATION (REAL TRANSFORMATION OUTCOMES)
 
-The application must allow designers to attach photographs of completed transformations.
+*Planned for Slice 7; not to be introduced earlier.*
 
-Each transformation record should support:
+The stylist will be able to document completed transformations:
 
-- Original garment photographs.
-- Selected transformation operations.
-- Final garment photographs.
-- Expert notes.
-- Actual implementation status.
-- Differences between proposed and completed modifications.
+- Original garment and its photographs.
+- Selected design idea (AI suggestion, revised suggestion or expert's own idea).
+- Final transformation and after photographs.
+- Materials used, construction challenges and time required.
+- Expert evaluation of the result.
+- Differences between the AI proposal and the actual result.
 
-Before/after data may support future recommendation evaluation and specialized model training.
+Do not assume that a recommendation was executed. Verified outcomes are the most valuable data for future evaluation and, if justified, model training.
 
 ---
 
@@ -255,23 +230,20 @@ AI provider selection must not affect public client API contracts.
 
 ## 9. EXPERT DATA COLLECTION
 
-The platform must preserve:
+The platform must preserve, with source and provenance:
 
-- Original images and audio.
-- AI predictions.
-- Expert corrections.
-- Recommendation approvals and rejections.
-- Voice transcripts.
-- Expert-authored recommendations.
-- AI refinement history.
-- Before/after photographs.
-- Model and prompt versions.
-- Annotation provenance.
-- Dataset eligibility status.
+- Original images and original audio recordings.
+- Machine-generated transcripts and expert-corrected transcripts (separately).
+- AI analyses and AI-generated suggestions, with model and prompt versions, generation parameters, input references and timestamps.
+- Expert decisions, comments, alternatives, preferences and regeneration requests.
+- Expert corrections and verified labels.
+- Suggestion revisions and refinement history.
+- Actual transformation outcomes and before/after photographs.
+- Dataset eligibility and consent status.
 
-Expert feedback must be stored separately from model predictions.
+Five kinds of knowledge are kept apart and never silently merged: **AI predictions, expert observations, expert corrections, expert preferences/decisions, and verified real-world facts/outcomes**. Example: AI "Material: cotton" → expert correction "linen-viscose blend" → verified label "60% linen, 40% viscose" are three traceable records.
 
-Data collection must support future supervised learning, retrieval, ranking, and evaluation.
+Data collection must support future retrieval, ranking, evaluation and supervised learning.
 
 ---
 
@@ -300,24 +272,27 @@ Backend APIs and business logic must remain independent of client technology.
 
 ---
 
-## 11. MVP SUCCESS CRITERIA
+## 11. SUCCESS CRITERIA AND EVALUATION
 
-The initial validation dataset will contain approximately 50 real garments.
+The Design Studio is successful when expert knowledge **measurably** improves AI-assisted recommendations. An initial evaluation set of roughly 50 real garments, split by project to avoid leakage, will compare:
 
-Evaluation areas:
+- Baseline AI without expert memory.
+- AI with project-specific feedback.
+- AI with cross-project expert memory.
 
-- Garment recognition quality.
-- Construction feature recognition.
-- Recommendation usefulness.
+Metrics (to be defined precisely in Slice 6; a minimal version earlier):
+
+- Garment analysis accuracy against verified labels.
+- Suggestion acceptance rate.
 - Technical feasibility.
-- Expert correction frequency.
-- Interaction usability.
-- Analysis latency.
-- AI inference cost.
+- Design novelty and diversity.
+- Expert editing effort.
+- Time to first useful suggestion.
+- Relevance of retrieved expert knowledge.
+- Quality improvement across iterations.
+- Interaction usability, analysis latency and inference cost.
 
-A preliminary target is at least 80% expert approval among evaluated recommendations.
-
-This target must be reassessed after initial testing and must not replace separate monitoring of technically infeasible suggestions.
+Acceptance rate alone is insufficient: the system must not be optimized towards safe, repetitive or obvious ideas. The earlier target of ≥80% expert approval is kept only as one signal and must be reassessed after initial testing.
 
 ---
 
@@ -327,9 +302,13 @@ This target must be reassessed after initial testing and must not replace separa
 - Vertical Slice Delivery.
 - Modular Monolith.
 - API-First Design.
+- Design Studio first, commercial application later.
+- Expert-in-the-loop by design; expert feedback must be easy to give.
 - Human-in-the-Loop AI.
 - Model-Agnostic Architecture.
-- Structured Expert Feedback.
+- Structured Expert Feedback with full provenance; originals and predictions never overwritten.
+- Measurable improvements over architectural complexity; no premature fine-tuning.
+- Privacy and ownership of expert data.
 - Dataset Versioning.
 - Internationalization by Design.
 - Automated Testing.
@@ -337,37 +316,11 @@ This target must be reassessed after initial testing and must not replace separa
 
 ---
 
-## 13. FIRST DEVELOPMENT MILESTONES
+## 13. DEVELOPMENT ROADMAP
 
-**M1 — Architecture Foundation**
-
-Repository structure, architecture documentation, development conventions, and API contracts.
-
-**M2 — Garment Capture**
-
-Mobile-first photography and garment project persistence.
-
-**M3 — Garment Understanding**
-
-AI-powered garment recognition and structured analysis.
-
-**M4 — Transformation Recommendations**
-
-Initial AI recommendations with explanations and feasibility considerations.
-
-**M5 — Interactive Expert Feedback**
-
-Approval, rejection, voice comments, and iterative AI refinement.
-
-**M6 — Before/After Documentation**
-
-Capture and persistence of completed transformations.
-
-**M7 — Dataset Foundation**
-
-Structured annotation export, dataset validation, and preparation for future ML training.
+See §2 (delivery slices and status) and `ARCHITECTURE.md` §11 (technical scope per slice). The former milestones M1–M7 map to Slices 0–6 of v0.2; in v0.3 before/after documentation moves to Slice 7, and cross-project memory (Slice 5) and evaluation (Slice 6) come first.
 
 ---
 
-**Document version:** 0.2  
+**Document version:** 0.3 (2026-11-17: Design Studio strategy, ADR-0008)  
 **Next document:** ARCHITECTURE.md
