@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useParams } from 'react-router';
 
@@ -36,33 +37,40 @@ function PhotoDetails({ garmentId, media }: { garmentId: string; media: MediaAss
   const navigate = useNavigate();
   const setCategory = useUpdateMediaCategory(garmentId, media.id);
   const remove = useDeleteMedia(garmentId);
-  const categoryName = t(`categories.${media.category}`);
+  const categoryName = media.category ? t(`categories.${media.category}`) : null;
+  // Optimistic: the chip moves on tap; reverts if the server refuses.
+  const [choice, setChoice] = useState<MediaCategory | null | undefined>(undefined);
+  const selected = choice === undefined ? media.category : choice;
+  const choose = (category: MediaCategory | null) => {
+    setChoice(category);
+    setCategory.mutate(category, { onSettled: () => setChoice(undefined) });
+  };
 
   return (
     <>
-      <h1>{categoryName}</h1>
+      <h1>{categoryName ?? t('photo.title')}</h1>
       {media.preview_url && (
         <img
           className="photo-preview"
           src={media.preview_url}
-          alt={t('photo.alt', { category: categoryName })}
+          alt={categoryName ? t('photo.alt', { category: categoryName }) : t('photo.altPlain')}
         />
       )}
 
-      <label className="field">
-        {t('photo.category')}
-        <select
-          value={media.category}
-          disabled={setCategory.isPending}
-          onChange={(event) => setCategory.mutate(event.target.value as MediaCategory)}
-        >
-          {MEDIA_CATEGORIES.map((category) => (
-            <option key={category} value={category}>
-              {t(`categories.${category}`)}
-            </option>
-          ))}
-        </select>
-      </label>
+      <fieldset className="chips" disabled={remove.isPending}>
+        <legend>{t('photo.category')}</legend>
+        {[null, ...MEDIA_CATEGORIES].map((category) => (
+          <label key={category ?? 'none'} className="chip">
+            <input
+              type="radio"
+              name="category"
+              checked={selected === category}
+              onChange={() => choose(category)}
+            />
+            <span>{category ? t(`categories.${category}`) : t('photo.noCategory')}</span>
+          </label>
+        ))}
+      </fieldset>
       {setCategory.isError && <ErrorMessage error={setCategory.error} />}
 
       <h2>{t('photo.details')}</h2>

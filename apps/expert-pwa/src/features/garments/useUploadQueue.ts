@@ -1,7 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState, useSyncExternalStore } from 'react';
 
-import type { Garment } from '@upcycling/api-client';
+import type { Garment, MediaAsset, MediaCategory } from '@upcycling/api-client';
 
 import { useApi } from '../../shared/api/apiContext';
 import { unwrap } from '../../shared/api/client';
@@ -9,20 +9,25 @@ import { declaredContentType, sha256Hex, xhrUploadTransport } from '../../shared
 import { garmentKey, invalidateGarment } from './queries';
 import { UploadQueue } from './uploadQueue';
 
-/** Upload queue bound to one garment; stops (and leaves pending photos) on unmount. */
+export type PhotoMeta = { category: MediaCategory | null };
+export type PhotoUploadQueue = UploadQueue<PhotoMeta, MediaAsset>;
+
+/** Photo upload queue bound to one garment; stops (and leaves pending photos) on unmount. */
 export function useUploadQueue(garmentId: string) {
   const api = useApi();
   const queryClient = useQueryClient();
   const [queue] = useState(
     () =>
-      new UploadQueue({
-        requestUpload: (body) =>
-          unwrap(
+      new UploadQueue<PhotoMeta, MediaAsset>({
+        requestUpload: async (body, meta) => {
+          const ticket = await unwrap(
             api.POST('/api/v1/garments/{garment_id}/media/uploads', {
               params: { path: { garment_id: garmentId } },
-              body,
+              body: { ...body, category: meta.category },
             }),
-          ),
+          );
+          return { record: ticket.media, upload: ticket.upload };
+        },
         complete: (mediaId) =>
           unwrap(
             api.POST('/api/v1/garments/{garment_id}/media/complete', {

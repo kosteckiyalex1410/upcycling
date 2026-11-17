@@ -6,10 +6,11 @@ import { createExpert } from './backend';
 import { latestLoginEmail } from './mailpit';
 
 /**
- * Slice 1 journey against the real API, PostgreSQL and S3-compatible storage. Photos go
- * from the browser straight to storage with presigned URLs (cross-origin, CORS) and are
- * then verified by the API. Camera capture itself needs a real iPhone (manual check);
- * here files are supplied to the same inputs the camera and library buttons open.
+ * Slice 1/1.1 journeys against the real API, PostgreSQL and S3-compatible storage. Photos
+ * and voice notes go from the browser straight to storage with presigned URLs
+ * (cross-origin, CORS) and are then verified by the API. Camera capture and the real iPhone
+ * microphone need a device (manual check); here files go to the same inputs the camera and
+ * library buttons open, and recordings come from the browsers' fake microphones.
  */
 
 const fixture = (name: string) => fileURLToPath(new URL(`./fixtures/${name}`, import.meta.url));
@@ -29,10 +30,12 @@ async function newProject(page: Page) {
   await expect(page.getByRole('heading', { name: 'Проєкт без назви' })).toBeVisible();
 }
 
-const category = (page: Page, name: string) => page.getByRole('region', { name, exact: true });
+const gallery = (page: Page) => page.getByRole('region', { name: /^Фото/ });
+const voiceSection = (page: Page) => page.getByRole('region', { name: /^Голосові нотатки/ });
+const captureBar = (page: Page) => page.getByRole('toolbar', { name: 'Фото та голос' });
 
 /** The library input behind "Choose photos" (what iOS fills after the photo picker). */
-const libraryInput = (region: Locator) => region.locator('input[type="file"][multiple]');
+const libraryInput = (page: Page) => captureBar(page).locator('input[type="file"][multiple]');
 
 async function expectImageLoaded(image: Locator) {
   await expect(image).toBeVisible();
@@ -41,7 +44,29 @@ async function expectImageLoaded(image: Locator) {
     .toBe(true);
 }
 
-test('create a project, add JPEG and HEIC photos, reopen, edit and delete', async ({
+/** Loads the audio element's source and returns its duration in seconds. */
+async function playableDuration(audio: Locator): Promise<number> {
+  return audio.evaluate(
+    (element: HTMLAudioElement) =>
+      new Promise<number>((resolve, reject) => {
+        element.preload = 'auto';
+        element.onloadedmetadata = () => resolve(element.duration);
+        element.onerror = () => reject(new Error(`audio error ${element.error?.code}`));
+        element.load();
+      }),
+  );
+}
+
+async function recordVoiceNote(page: Page, ms = 1500) {
+  await captureBar(page).getByRole('button', { name: 'Голос' }).click();
+  await expect(captureBar(page).getByRole('status')).toContainText('Запис');
+  await expect(captureBar(page).getByRole('button', { name: 'Зупинити' })).toBeVisible();
+  await page.waitForTimeout(ms);
+  await captureBar(page).getByRole('button', { name: 'Зупинити' }).click();
+  await expect(captureBar(page).getByText(/Новий запис ·/)).toBeVisible();
+}
+
+test('one gallery: photos without categories, categorize later, reopen, delete', async ({
   page,
   request,
 }, info) => {
@@ -49,25 +74,25 @@ test('create a project, add JPEG and HEIC photos, reopen, edit and delete', asyn
   await newProject(page);
   const garmentUrl = page.url();
 
-  await libraryInput(category(page, 'Перед')).setInputFiles(fixture('front.jpg'));
-  await libraryInput(category(page, 'Етикетка')).setInputFiles(fixture('label.heic'));
+  // Several photos at once, no category asked.
+  await libraryInput(page).setInputFiles([fixture('front.jpg'), fixture('label.heic')]);
+  const first = gallery(page).getByRole('link', { name: 'Відкрити фото 1' });
+  const second = gallery(page).getByRole('link', { name: 'Відкрити фото 2' });
+  await expectImageLoaded(first.locator('img'));
+  await expectImageLoaded(second.locator('img')); // HEIC shown via server-rendered JPEG
 
-  const frontPhoto = category(page, 'Перед').getByRole('link', { name: 'Відкрити фото: Перед' });
-  const labelPhoto = category(page, 'Етикетка').getByRole('link', {
-    name: 'Відкрити фото: Етикетка',
-  });
-  await expectImageLoaded(frontPhoto.locator('img'));
-  await expectImageLoaded(labelPhoto.locator('img')); // HEIC shown via server-rendered JPEG
-
+  await page.getByText('Назва та нотатки').click();
   await page.getByLabel('Назва').fill('Джинсова куртка');
-  await page.getByLabel('Нотатки').fill('Потертості на манжетах');
-  await page.getByRole('button', { name: 'Зберегти' }).click();
+  await page.getByLabel('Нотатки', { exact: true }).fill('Потертості на манжетах');
+  await page.getByRole('button', { name: 'Зберегти', exact: true }).click();
   await expect(page.getByRole('status')).toHaveText('Збережено');
 
   // Reopen from the list after a full reload: everything comes back from the server.
   await page.reload();
   await expect(page.getByRole('heading', { name: 'Джинсова куртка' })).toBeVisible();
-  await expect(page.getByLabel('Нотатки')).toHaveValue('Потертості на манжетах');
+  await expect(page.getByRole('textbox', { name: /^Нотатки/ })).toHaveValue(
+    'Потертості на манжетах',
+  );
   await page.getByRole('link', { name: 'Усі проєкти' }).click();
   const card = page.getByRole('link', { name: /Джинсова куртка/ });
   await expect(card).toContainText('2 фото');
@@ -75,9 +100,15 @@ test('create a project, add JPEG and HEIC photos, reopen, edit and delete', asyn
   await card.click();
   await expect(page).toHaveURL(garmentUrl);
 
-  // Photo viewer: details, recategorize, original download link.
-  await category(page, 'Етикетка').getByRole('link', { name: 'Відкрити фото: Етикетка' }).click();
-  await expectImageLoaded(page.getByRole('img', { name: 'Фото: Етикетка' }));
+  // Photo viewer: details, assign and remove a category, original download. Uploads run in
+  // parallel, so either photo may be the HEIC one.
+  await first.click();
+  await expectImageLoaded(page.getByRole('img', { name: 'Фото речі' }));
+  const heicNumber = (await page.getByText('HEIC', { exact: true }).count()) ? 1 : 2;
+  if (heicNumber === 2) {
+    await page.getByRole('link', { name: 'Назад до проєкту' }).click();
+    await second.click();
+  }
   await expect(page.getByText('HEIC', { exact: true })).toBeVisible();
   await expect(page.getByText('96 × 64 пікс.')).toBeVisible();
   const original = await page.request.get(
@@ -85,15 +116,23 @@ test('create a project, add JPEG and HEIC photos, reopen, edit and delete', asyn
   );
   expect(original.status()).toBe(200);
   expect(original.headers()['content-disposition']).toContain('attachment');
-  await page.getByLabel('Категорія').selectOption('defect');
-  await expect(page.getByRole('heading', { name: 'Дефекти' })).toBeVisible();
+  const chips = page.getByRole('group', { name: 'Категорія' });
+  await expect(chips.getByRole('radio', { name: 'Без категорії' })).toBeChecked();
+  await chips.getByRole('radio', { name: 'Етикетка' }).check();
+  await expect(page.getByRole('heading', { name: 'Етикетка' })).toBeVisible();
+  await page.getByRole('link', { name: 'Назад до проєкту' }).click();
+  const labelled = gallery(page).getByRole('link', {
+    name: `Відкрити фото ${heicNumber}: Етикетка`,
+  });
+  await expect(labelled).toBeVisible();
 
+  await labelled.click();
+  await chips.getByRole('radio', { name: 'Без категорії' }).check();
+  await expect(page.getByRole('heading', { name: 'Фото', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Видалити фото' }).click();
   await page.getByRole('button', { name: 'Видалити остаточно' }).click();
   await expect(page).toHaveURL(garmentUrl);
-  await expect(category(page, 'Дефекти').getByRole('link')).toHaveCount(0);
-  await expect(category(page, 'Етикетка').getByRole('link')).toHaveCount(0);
-  await expect(frontPhoto).toBeVisible();
+  await expect(gallery(page).getByRole('link')).toHaveCount(1);
 
   await page.getByRole('button', { name: 'Видалити проєкт' }).click();
   await page.getByRole('button', { name: 'Видалити остаточно' }).click();
@@ -118,40 +157,142 @@ test('an interrupted upload fails visibly and succeeds on retry', async ({
     else await route.fallback();
   });
 
-  const front = category(page, 'Перед');
-  await libraryInput(front).setInputFiles(fixture('front.jpg'));
-  await expect(front.getByText('Не завантажено')).toBeVisible({ timeout: 30_000 });
-  await expect(front.getByText('Немає з’єднання з сервером', { exact: false })).toBeVisible();
+  await libraryInput(page).setInputFiles(fixture('front.jpg'));
+  await expect(gallery(page).getByText('Не завантажено')).toBeVisible({ timeout: 30_000 });
+  await expect(
+    gallery(page).getByText('Немає з’єднання з сервером', { exact: false }),
+  ).toBeVisible();
 
   storageDown = false;
-  await front.getByRole('button', { name: 'Повторити' }).click();
-  await expectImageLoaded(front.getByRole('link', { name: 'Відкрити фото: Перед' }).locator('img'));
-  await expect(front.getByText('Не завантажено')).toHaveCount(0);
+  await gallery(page).getByRole('button', { name: 'Повторити' }).click();
+  await expectImageLoaded(
+    gallery(page).getByRole('link', { name: 'Відкрити фото 1' }).locator('img'),
+  );
+  await expect(gallery(page).getByText('Не завантажено')).toHaveCount(0);
 });
 
 test('a file that is not an image is rejected with a reason', async ({ page, request }, info) => {
   await signIn(page, request, createExpert(`reject-${info.project.name}`));
   await newProject(page);
-  const fabric = category(page, 'Тканина');
-  await libraryInput(fabric).setInputFiles(fixture('not-a-photo.jpg'));
-  await expect(fabric.getByText('Відхилено')).toBeVisible();
-  await expect(fabric.getByText('Цей тип файлу не підтримується', { exact: false })).toBeVisible();
-  await fabric.getByRole('button', { name: 'Прибрати' }).click();
-  await expect(fabric.getByText('Відхилено')).toHaveCount(0);
+  await libraryInput(page).setInputFiles(fixture('not-a-photo.jpg'));
+  await expect(gallery(page).getByText('Відхилено')).toBeVisible();
+  await expect(
+    gallery(page).getByText('Цей тип файлу не підтримується', { exact: false }),
+  ).toBeVisible();
+  await gallery(page).getByRole('button', { name: 'Прибрати' }).click();
+  await expect(gallery(page).getByText('Відхилено')).toHaveCount(0);
 });
 
-test("another expert cannot open someone else's project or photos", async ({
+test('voice notes: record, review, save, play after reload, record another, delete', async ({
+  page,
+  request,
+}, info) => {
+  await signIn(page, request, createExpert(`voice-${info.project.name}`));
+  await newProject(page);
+
+  await recordVoiceNote(page);
+  const review = captureBar(page).getByLabel('Прослухати новий запис');
+  expect(await playableDuration(review)).toBeGreaterThan(0.5);
+  await captureBar(page).getByRole('button', { name: 'Зберегти запис' }).click();
+  const firstNote = voiceSection(page).getByRole('article', { name: 'Нотатка 1' });
+  await expect(firstNote).toBeVisible();
+
+  // Survives closing and reopening: comes back from the server and plays from the API.
+  await page.reload();
+  await expect(firstNote).toBeVisible();
+  const audio = firstNote.getByLabel('Відтворити: Нотатка 1');
+  const src = (await audio.getAttribute('src')) ?? '';
+  expect(src).toMatch(/^\/api\/v1\/voice-notes\/.+\/audio$/);
+  expect(await playableDuration(audio)).toBeGreaterThan(0.5);
+  const range = await page.request.get(src, { headers: { Range: 'bytes=0-1' } });
+  expect(range.status()).toBe(206);
+
+  await recordVoiceNote(page, 1000);
+  await captureBar(page).getByRole('button', { name: 'Зберегти запис' }).click();
+  await expect(voiceSection(page).getByRole('article', { name: 'Нотатка 2' })).toBeVisible();
+
+  await firstNote.getByRole('button', { name: 'Видалити нотатку' }).click();
+  await firstNote.getByRole('button', { name: 'Видалити остаточно' }).click();
+  await expect(voiceSection(page).getByRole('article')).toHaveCount(1);
+  expect((await page.request.get(src)).status()).toBe(404);
+});
+
+test('a recording that was not saved comes back after a reload', async ({
+  page,
+  request,
+}, info) => {
+  await signIn(page, request, createExpert(`draft-${info.project.name}`));
+  await newProject(page);
+  await recordVoiceNote(page);
+  await page.waitForTimeout(300); // the local copy is written right after recording stops
+
+  await page.reload();
+  const draft = voiceSection(page).getByText(/Новий запис .* Не збережено/);
+  await expect(draft).toBeVisible();
+  await voiceSection(page).getByRole('button', { name: 'Зберегти запис' }).click();
+  await expect(voiceSection(page).getByRole('article', { name: 'Нотатка 1' })).toBeVisible();
+
+  await page.reload(); // the local copy is gone once the server has it
+  await expect(voiceSection(page).getByRole('article')).toHaveCount(1);
+  await expect(voiceSection(page).getByText(/Не збережено/)).toHaveCount(0);
+});
+
+test('an interrupted voice upload can be retried', async ({ page, request }, info) => {
+  test.setTimeout(90_000);
+  await signIn(page, request, createExpert(`voice-retry-${info.project.name}`));
+  await newProject(page);
+  let storageDown = true;
+  await page.route('**/uploads/**', async (route) => {
+    if (storageDown && route.request().method() === 'PUT')
+      await route.abort('internetdisconnected');
+    else await route.fallback();
+  });
+
+  await recordVoiceNote(page);
+  await captureBar(page).getByRole('button', { name: 'Зберегти запис' }).click();
+  await expect(voiceSection(page).getByText(/Не збережено на сервері/)).toBeVisible({
+    timeout: 30_000,
+  });
+  storageDown = false;
+  await voiceSection(page).getByRole('button', { name: 'Повторити' }).click();
+  await expect(voiceSection(page).getByRole('article', { name: 'Нотатка 1' })).toBeVisible();
+});
+
+test.describe('without microphone permission', () => {
+  test.use({ permissions: [] }); // WebKit then rejects getUserMedia with NotAllowedError
+
+  test('a denied microphone is explained', async ({ page, request }, info) => {
+    // Chromium's fake UI grants everything, so deny explicitly there.
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator.mediaDevices, 'getUserMedia', {
+        configurable: true,
+        value: () => Promise.reject(new DOMException('denied', 'NotAllowedError')),
+      });
+    });
+    await signIn(page, request, createExpert(`mic-${info.project.name}`));
+    await newProject(page);
+    await captureBar(page).getByRole('button', { name: 'Голос' }).click();
+    await expect(captureBar(page).getByRole('alert')).toContainText('Немає доступу до мікрофона');
+  });
+});
+
+test("another expert cannot open someone else's project, photos or voice notes", async ({
   page,
   browser,
   request,
 }, info) => {
   await signIn(page, request, createExpert(`owner-${info.project.name}`));
   await newProject(page);
-  await libraryInput(category(page, 'Перед')).setInputFiles(fixture('front.jpg'));
-  const photoLink = category(page, 'Перед').getByRole('link', { name: 'Відкрити фото: Перед' });
+  await libraryInput(page).setInputFiles(fixture('front.jpg'));
+  const photoLink = gallery(page).getByRole('link', { name: 'Відкрити фото 1' });
   await expectImageLoaded(photoLink.locator('img'));
+  await recordVoiceNote(page, 800);
+  await captureBar(page).getByRole('button', { name: 'Зберегти запис' }).click();
+  const note = voiceSection(page).getByRole('article', { name: 'Нотатка 1' });
+  await expect(note).toBeVisible();
   const garmentUrl = page.url();
   const thumbnail = (await photoLink.locator('img').getAttribute('src')) ?? '';
+  const audio = (await note.getByLabel('Відтворити: Нотатка 1').getAttribute('src')) ?? '';
 
   const other = await browser.newContext();
   const otherPage = await other.newPage();
@@ -159,8 +300,10 @@ test("another expert cannot open someone else's project or photos", async ({
   await otherPage.goto(garmentUrl);
   await expect(otherPage.getByRole('alert')).toContainText('Не знайдено');
   expect((await otherPage.request.get(thumbnail)).status()).toBe(404);
+  expect((await otherPage.request.get(audio)).status()).toBe(404);
   await other.close();
 
   // Signed-out requests are refused too.
   expect((await request.get(thumbnail)).status()).toBe(401);
+  expect((await request.get(audio)).status()).toBe(401);
 });

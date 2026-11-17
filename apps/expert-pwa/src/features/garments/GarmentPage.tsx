@@ -2,17 +2,18 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useBlocker, useNavigate, useParams } from 'react-router';
 
-import type { Garment, MediaAsset, MediaCategory } from '@upcycling/api-client';
+import type { Garment, MediaAsset } from '@upcycling/api-client';
 
 import { errorKeyForCode } from '../../shared/api/errors';
 import { PhotoPicker } from '../../shared/platform/PhotoPicker';
 import { ConfirmAction } from '../../shared/ui/ConfirmAction';
 import { ErrorMessage } from '../../shared/ui/ErrorMessage';
 import { formatDate } from '../../shared/ui/format';
-import { MEDIA_CATEGORIES } from './categories';
 import { useDeleteGarment, useDeleteMedia, useGarment, useUpdateGarment } from './queries';
-import type { UploadItem, UploadQueue } from './uploadQueue';
-import { useUploadQueue } from './useUploadQueue';
+import type { UploadItem } from './uploadQueue';
+import { useUploadQueue, type PhotoMeta, type PhotoUploadQueue } from './useUploadQueue';
+import { useVoiceNotes } from './useVoiceNotes';
+import { RecordButton, RecorderPanel, VoiceNoteList } from './VoiceNotes';
 
 export function GarmentPage() {
   const { garmentId = '' } = useParams();
@@ -20,7 +21,7 @@ export function GarmentPage() {
   const { t } = useTranslation();
 
   return (
-    <main id="main" className="page">
+    <main id="main" className="page page--with-bar">
       <Link to="/" className="back-link">
         {t('garment.back')}
       </Link>
@@ -33,27 +34,36 @@ export function GarmentPage() {
   );
 }
 
+/**
+ * Camera-first project screen: one photo gallery, voice notes, then the optional name and
+ * text notes. Capture actions live in a bar at the bottom edge, within thumb reach.
+ */
 function GarmentEditor({ garment }: { garment: Garment }) {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
-  const uploads = useUploadQueue(garment.id);
+  const photos = useUploadQueue(garment.id);
+  const voice = useVoiceNotes(garment.id);
   const remove = useDeleteGarment(garment.id);
 
-  // Leaving stops unfinished uploads: ask first (in-app navigation and tab close/reload).
-  const blocker = useBlocker(uploads.active);
+  // Leaving stops unfinished uploads and recordings: ask first (in-app navigation and
+  // tab close/reload).
+  const busy = photos.active || voice.busy;
+  const blocker = useBlocker(busy);
   useEffect(() => {
-    if (!uploads.active) return;
+    if (!busy) return;
     const warn = (event: BeforeUnloadEvent) => event.preventDefault();
     window.addEventListener('beforeunload', warn);
     return () => window.removeEventListener('beforeunload', warn);
-  }, [uploads.active]);
+  }, [busy]);
 
   return (
     <>
-      <h1>{garment.title ?? t('garment.untitled')}</h1>
-      <p className="hint">
-        {t('garment.createdOn', { date: formatDate(garment.created_at, i18n.language) })}
-      </p>
+      <header className="garment-header">
+        <h1>{garment.title ?? t('garment.untitled')}</h1>
+        <p className="hint">
+          {t('garment.createdOn', { date: formatDate(garment.created_at, i18n.language) })}
+        </p>
+      </header>
 
       {blocker.state === 'blocked' && (
         <div role="alertdialog" aria-label={t('garment.leaveTitle')} className="confirm">
@@ -75,19 +85,14 @@ function GarmentEditor({ garment }: { garment: Garment }) {
         </div>
       )}
 
-      <section aria-labelledby="photos-heading">
-        <h2 id="photos-heading">{t('garment.photos')}</h2>
-        {MEDIA_CATEGORIES.map((category) => (
-          <CategorySection
-            key={category}
-            category={category}
-            garmentId={garment.id}
-            media={garment.media.filter((m) => m.category === category)}
-            uploads={uploads.items.filter((item) => item.category === category)}
-            queue={uploads.queue}
-          />
-        ))}
-      </section>
+      <PhotoGallery
+        garmentId={garment.id}
+        media={garment.media}
+        uploads={photos.items}
+        queue={photos.queue}
+      />
+
+      <VoiceNoteList garmentId={garment.id} notes={garment.voice_notes} voice={voice} />
 
       <GarmentDetailsForm key={garment.id} garment={garment} />
 
@@ -102,38 +107,53 @@ function GarmentEditor({ garment }: { garment: Garment }) {
         />
         {remove.isError && <ErrorMessage error={remove.error} />}
       </section>
+
+      <div className="capture-bar" role="toolbar" aria-label={t('garment.captureBar')}>
+        {/* While recording or reviewing, the recorder replaces the capture buttons. */}
+        {voice.state.status !== 'idle' ? (
+          <RecorderPanel voice={voice} />
+        ) : (
+          <div className="capture-bar__actions">
+            <PhotoPicker
+              cameraLabel={t('garment.takePhoto')}
+              libraryLabel={t('garment.choosePhotos')}
+              onFiles={(files) => photos.queue.add(files, { category: null })}
+            />
+            <RecordButton voice={voice} />
+          </div>
+        )}
+      </div>
     </>
   );
 }
 
-function CategorySection({
-  category,
+function PhotoGallery({
   garmentId,
   media,
   uploads,
   queue,
 }: {
-  category: MediaCategory;
   garmentId: string;
   media: MediaAsset[];
-  uploads: UploadItem[];
-  queue: UploadQueue;
+  uploads: readonly UploadItem<PhotoMeta>[];
+  queue: PhotoUploadQueue;
 }) {
   const { t } = useTranslation();
-  const headingId = `category-${category}`;
+  const ready = media.filter((m) => m.status === 'ready').length;
   const empty = media.length === 0 && uploads.length === 0;
 
   return (
-    <section className="category" aria-labelledby={headingId}>
-      <div className="category__header">
-        <h3 id={headingId}>{t(`categories.${category}`)}</h3>
-        <p className="hint">{t(`categoryHints.${category}`)}</p>
-      </div>
-      {empty ? null : (
+    <section aria-labelledby="photos-heading" className="garment-section">
+      <h2 id="photos-heading">
+        {t('garment.photos')} {ready > 0 && <span className="count">{ready}</span>}
+      </h2>
+      {empty ? (
+        <p className="hint">{t('garment.noPhotos')}</p>
+      ) : (
         <ul className="photo-grid">
-          {media.map((item) => (
+          {media.map((item, index) => (
             <li key={item.id}>
-              <MediaTile garmentId={garmentId} media={item} />
+              <MediaTile garmentId={garmentId} media={item} number={index + 1} />
             </li>
           ))}
           {uploads.map((item) => (
@@ -143,27 +163,40 @@ function CategorySection({
           ))}
         </ul>
       )}
-      <PhotoPicker
-        cameraLabel={t('garment.takePhoto')}
-        libraryLabel={t('garment.choosePhotos')}
-        onFiles={(files) => queue.add(files, category)}
-      />
     </section>
   );
 }
 
-function MediaTile({ garmentId, media }: { garmentId: string; media: MediaAsset }) {
+function MediaTile({
+  garmentId,
+  media,
+  number,
+}: {
+  garmentId: string;
+  media: MediaAsset;
+  number: number;
+}) {
   const { t } = useTranslation();
   const remove = useDeleteMedia(garmentId);
 
   if (media.status === 'ready' && media.thumbnail_url) {
+    const category = media.category ? t(`categories.${media.category}`) : null;
     return (
       <Link
         to={`/garments/${garmentId}/photos/${media.id}`}
         className="photo-tile"
-        aria-label={t('garment.openPhoto', { category: t(`categories.${media.category}`) })}
+        aria-label={
+          category
+            ? t('garment.openPhotoCategory', { number, category })
+            : t('garment.openPhoto', { number })
+        }
       >
         <img src={media.thumbnail_url} alt="" loading="lazy" />
+        {category && (
+          <span className="photo-tile__chip" aria-hidden>
+            {category}
+          </span>
+        )}
       </Link>
     );
   }
@@ -188,7 +221,7 @@ function MediaTile({ garmentId, media }: { garmentId: string; media: MediaAsset 
   );
 }
 
-function UploadTile({ item, queue }: { item: UploadItem; queue: UploadQueue }) {
+function UploadTile({ item, queue }: { item: UploadItem<PhotoMeta>; queue: PhotoUploadQueue }) {
   const { t } = useTranslation();
   const percent = Math.round(item.progress * 100);
   const label =
@@ -242,6 +275,8 @@ function GarmentDetailsForm({ garment }: { garment: Garment }) {
   const update = useUpdateGarment(garment.id);
   const [title, setTitle] = useState(garment.title ?? '');
   const [notes, setNotes] = useState(garment.notes ?? '');
+  // Open by default only when there is something to read.
+  const [open, setOpen] = useState(Boolean(garment.notes));
   const dirty = title.trim() !== (garment.title ?? '') || notes.trim() !== (garment.notes ?? '');
 
   const submit = (event: FormEvent) => {
@@ -250,41 +285,48 @@ function GarmentDetailsForm({ garment }: { garment: Garment }) {
   };
 
   return (
-    <form className="stack details-form" onSubmit={submit} aria-labelledby="details-heading">
-      <h2 id="details-heading">{t('garment.details')}</h2>
-      <label className="field">
-        {t('garment.titleLabel')}
-        <input
-          value={title}
-          maxLength={120}
-          placeholder={t('garment.titlePlaceholder')}
-          onChange={(event) => setTitle(event.target.value)}
-        />
-      </label>
-      <label className="field">
-        {t('garment.notesLabel')}
-        <textarea
-          value={notes}
-          maxLength={4000}
-          rows={4}
-          onChange={(event) => setNotes(event.target.value)}
-        />
-      </label>
-      <div className="button-row">
-        <button
-          type="submit"
-          className="button button--primary"
-          disabled={!dirty || update.isPending}
-        >
-          {update.isPending ? t('actions.saving') : t('actions.save')}
-        </button>
-        {update.isSuccess && !dirty && (
-          <span role="status" className="status">
-            {t('actions.saved')}
-          </span>
-        )}
-      </div>
-      {update.isError && <ErrorMessage error={update.error} />}
-    </form>
+    <details
+      className="garment-section details-panel"
+      open={open}
+      onToggle={(event) => setOpen(event.currentTarget.open)}
+    >
+      <summary>{t('garment.details')}</summary>
+      <form className="stack" onSubmit={submit}>
+        <label className="field">
+          {t('garment.titleLabel')}
+          <input
+            value={title}
+            maxLength={120}
+            placeholder={t('garment.titlePlaceholder')}
+            onChange={(event) => setTitle(event.target.value)}
+          />
+        </label>
+        <label className="field">
+          {t('garment.notesLabel')}
+          <textarea
+            value={notes}
+            maxLength={4000}
+            rows={4}
+            placeholder={t('garment.notesPlaceholder')}
+            onChange={(event) => setNotes(event.target.value)}
+          />
+        </label>
+        <div className="button-row">
+          <button
+            type="submit"
+            className="button button--primary"
+            disabled={!dirty || update.isPending}
+          >
+            {update.isPending ? t('actions.saving') : t('actions.save')}
+          </button>
+          {update.isSuccess && !dirty && (
+            <span role="status" className="status">
+              {t('actions.saved')}
+            </span>
+          )}
+        </div>
+        {update.isError && <ErrorMessage error={update.error} />}
+      </form>
+    </details>
   );
 }

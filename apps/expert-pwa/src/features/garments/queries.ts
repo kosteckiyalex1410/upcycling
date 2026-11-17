@@ -90,14 +90,21 @@ export function useUpdateMediaCategory(garmentId: string, mediaId: string) {
   const api = useApi();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (category: MediaCategory) =>
+    mutationFn: (category: MediaCategory | null) =>
       unwrap(
         api.PATCH('/api/v1/media/{media_id}', {
           params: { path: { media_id: mediaId } },
           body: { category },
         }),
       ),
-    onSuccess: () => invalidateGarment(queryClient, garmentId),
+    onSuccess: (media) => {
+      queryClient.setQueryData<Garment>(garmentKey(garmentId), (garment) =>
+        garment
+          ? { ...garment, media: garment.media.map((m) => (m.id === media.id ? media : m)) }
+          : garment,
+      );
+      invalidateGarment(queryClient, garmentId);
+    },
   });
 }
 
@@ -107,6 +114,20 @@ export function useDeleteMedia(garmentId: string) {
   return useMutation({
     mutationFn: (mediaId: string) =>
       unwrap(api.DELETE('/api/v1/media/{media_id}', { params: { path: { media_id: mediaId } } })),
+    onSuccess: () => invalidateGarment(queryClient, garmentId),
+  });
+}
+
+export function useDeleteVoiceNote(garmentId: string) {
+  const api = useApi();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (voiceNoteId: string) =>
+      unwrap(
+        api.DELETE('/api/v1/voice-notes/{voice_note_id}', {
+          params: { path: { voice_note_id: voiceNoteId } },
+        }),
+      ),
     onSuccess: () => invalidateGarment(queryClient, garmentId),
   });
 }

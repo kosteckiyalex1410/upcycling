@@ -1,14 +1,19 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import type { Garment, MediaAsset } from '@upcycling/api-client';
+import type { Garment, MediaAsset, VoiceNote } from '@upcycling/api-client';
 
+import { voicePlatform } from '../../src/features/garments/useVoiceNotes';
+import type { MicrophoneEnv, RecorderLike } from '../../src/shared/platform/audioRecorder';
+import { memoryVoiceDraftStore, type VoiceDraftStore } from '../../src/shared/platform/voiceDrafts';
 import { EXPERT, json, mockApi, renderApp } from './harness';
 
 const G = '0193aaaa-0000-7000-8000-000000000001';
 const M = '0193bbbb-0000-7000-8000-000000000002';
 const R = '0193bbbb-0000-7000-8000-000000000003';
+const U = '0193bbbb-0000-7000-8000-000000000004';
+const V = '0193cccc-0000-7000-8000-000000000005';
 
 const readyPhoto: MediaAsset = {
   id: M,
@@ -41,6 +46,29 @@ const rejectedPhoto: MediaAsset = {
   original_url: null,
 };
 
+const uncategorized: MediaAsset = {
+  ...readyPhoto,
+  id: U,
+  category: null,
+  thumbnail_url: `/api/v1/media/${U}/thumbnail`,
+};
+
+const voiceNote: VoiceNote = {
+  id: V,
+  garment_id: G,
+  status: 'ready',
+  error_code: null,
+  content_type: 'audio/mp4',
+  codec: 'aac',
+  size_bytes: 120_000,
+  sha256: 'b'.repeat(64),
+  duration_ms: 42_000,
+  recorded_at: '2026-11-16T10:00:00Z',
+  created_at: '2026-11-16T10:00:00Z',
+  completed_at: '2026-11-16T10:00:02Z',
+  audio_url: `/api/v1/voice-notes/${V}/audio`,
+};
+
 const garment = (patch: Partial<Garment> = {}): Garment => ({
   id: G,
   title: 'Джинсова куртка',
@@ -48,8 +76,46 @@ const garment = (patch: Partial<Garment> = {}): Garment => ({
   created_at: '2026-11-16T09:00:00Z',
   updated_at: '2026-11-16T09:00:00Z',
   media: [readyPhoto, rejectedPhoto],
+  voice_notes: [],
   ...patch,
 });
+
+/** A microphone that "records" until stopped (stands in for getUserMedia + MediaRecorder). */
+function fakeMicrophone(patch: Partial<MicrophoneEnv> = {}): MicrophoneEnv {
+  const track = { stop: vi.fn(), addEventListener: vi.fn() };
+  const stream = { getTracks: () => [track], getAudioTracks: () => [track] };
+  return {
+    secure: true,
+    getUserMedia: () => Promise.resolve(stream as unknown as MediaStream),
+    isTypeSupported: (type) => type.startsWith('audio/mp4'),
+    createRecorder: () => {
+      const recorder: RecorderLike = {
+        mimeType: 'audio/mp4; codecs=mp4a.40.2',
+        state: 'inactive',
+        start() {
+          (this as { state: string }).state = 'recording';
+        },
+        stop() {
+          (this as { state: string }).state = 'inactive';
+          this.ondataavailable?.({ data: new Blob(['fake-aac']) });
+          this.onstop?.();
+        },
+        ondataavailable: null,
+        onstop: null,
+        onerror: null,
+      };
+      return recorder;
+    },
+    ...patch,
+  };
+}
+
+function usePlatform(microphone: MicrophoneEnv, drafts: VoiceDraftStore = memoryVoiceDraftStore()) {
+  vi.spyOn(voicePlatform, 'microphone').mockReturnValue(microphone);
+  vi.spyOn(voicePlatform, 'drafts').mockReturnValue(drafts);
+}
+
+afterEach(() => vi.restoreAllMocks());
 
 const me = () => json(200, EXPERT);
 
@@ -98,37 +164,70 @@ describe('garment list', () => {
 });
 
 describe('garment page', () => {
-  it('groups photos by category and explains rejected uploads', async () => {
+  it('shows all photos in one gallery with category labels and capture actions', async () => {
+    usePlatform(fakeMicrophone());
     const calls = mockApi({
       'GET /api/v1/me': me,
-      [`GET /api/v1/garments/${G}`]: () => json(200, garment()),
+      [`GET /api/v1/garments/${G}`]: () =>
+        json(200, garment({ media: [readyPhoto, uncategorized, rejectedPhoto] })),
       [`DELETE /api/v1/media/${R}`]: () => new Response(null, { status: 204 }),
     });
     const user = userEvent.setup();
     await renderApp(`/garments/${G}`);
 
     expect(await screen.findByRole('heading', { name: 'Джинсова куртка' })).toBeInTheDocument();
-    for (const name of ['Перед', 'Спинка', 'Деталі', 'Тканина', 'Дефекти', 'Етикетка']) {
-      expect(screen.getByRole('heading', { name })).toBeInTheDocument();
-    }
-    const front = screen.getByRole('region', { name: 'Перед' });
-    expect(within(front).getByRole('link', { name: 'Відкрити фото: Перед' })).toHaveAttribute(
+    const gallery = screen.getByRole('region', { name: /Фото/ });
+    expect(within(gallery).getByRole('link', { name: 'Відкрити фото 1: Перед' })).toHaveAttribute(
       'href',
       `/garments/${G}/photos/${M}`,
     );
-    expect(within(front).getByRole('button', { name: 'Зробити фото' })).toBeInTheDocument();
-    expect(within(front).getByRole('button', { name: 'Вибрати фото' })).toBeInTheDocument();
+    expect(within(gallery).getByText('Перед')).toBeInTheDocument(); // chip on the thumbnail
+    expect(within(gallery).getByRole('link', { name: 'Відкрити фото 2' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Спинка' })).not.toBeInTheDocument();
 
-    const defects = screen.getByRole('region', { name: 'Дефекти' });
-    expect(within(defects).getByText('Відхилено')).toBeInTheDocument();
-    expect(within(defects).getByText('Файл пошкоджений або не є зображенням.')).toBeInTheDocument();
-    await user.click(within(defects).getByRole('button', { name: 'Прибрати' }));
+    const bar = screen.getByRole('toolbar', { name: 'Фото та голос' });
+    for (const name of ['Зробити фото', 'Вибрати фото', 'Голос']) {
+      expect(within(bar).getByRole('button', { name })).toBeInTheDocument();
+    }
+
+    expect(within(gallery).getByText('Відхилено')).toBeInTheDocument();
+    expect(within(gallery).getByText('Файл пошкоджений або не є зображенням.')).toBeInTheDocument();
+    await user.click(within(gallery).getByRole('button', { name: 'Прибрати' }));
     await waitFor(() =>
       expect(calls.some((c) => c.method === 'DELETE' && c.path.endsWith(R))).toBe(true),
     );
   });
 
+  it('uploads chosen photos without asking for a category', async () => {
+    usePlatform(fakeMicrophone());
+    const calls = mockApi({
+      'GET /api/v1/me': me,
+      [`GET /api/v1/garments/${G}`]: () => json(200, garment({ media: [] })),
+      [`POST /api/v1/garments/${G}/media/uploads`]: () =>
+        json(200, { media: { ...uncategorized, status: 'ready' }, upload: null }),
+    });
+    const user = userEvent.setup();
+    const { container } = await renderApp(`/garments/${G}`);
+    await screen.findByRole('heading', { name: 'Джинсова куртка' });
+
+    const library = container.querySelector<HTMLInputElement>('input[type="file"][multiple]')!;
+    await user.upload(library, [
+      new File(['a'], 'IMG_1.HEIC', { type: 'image/heic' }),
+      new File(['b'], 'IMG_2.JPG', { type: 'image/jpeg' }),
+    ]);
+    await waitFor(() =>
+      expect(calls.filter((c) => c.path.endsWith('/media/uploads'))).toHaveLength(2),
+    );
+    for (const call of calls.filter((c) => c.path.endsWith('/media/uploads'))) {
+      expect(call.body).toMatchObject({
+        category: null,
+        content_type: expect.any(String) as string,
+      });
+    }
+  });
+
   it('saves the name and notes', async () => {
+    usePlatform(fakeMicrophone());
     const calls = mockApi({
       'GET /api/v1/me': me,
       [`GET /api/v1/garments/${G}`]: () => json(200, garment({ media: [] })),
@@ -138,6 +237,7 @@ describe('garment page', () => {
     const user = userEvent.setup();
     await renderApp(`/garments/${G}`);
 
+    await user.click(await screen.findByText('Назва та нотатки')); // collapsed by default
     const notes = await screen.findByLabelText('Нотатки');
     await user.type(notes, '  Потертості на манжетах ');
     await user.click(screen.getByRole('button', { name: 'Зберегти' }));
@@ -147,6 +247,7 @@ describe('garment page', () => {
   });
 
   it('asks for confirmation before deleting the project', async () => {
+    usePlatform(fakeMicrophone());
     const calls = mockApi({
       'GET /api/v1/me': me,
       [`GET /api/v1/garments/${G}`]: () => json(200, garment({ media: [] })),
@@ -190,12 +291,143 @@ describe('photo page', () => {
       `/api/v1/media/${M}/original`,
     );
 
-    await user.selectOptions(screen.getByLabelText('Категорія'), 'label');
+    const chips = screen.getByRole('group', { name: 'Категорія' });
+    expect(within(chips).getByRole('radio', { name: 'Перед' })).toBeChecked();
+    await user.click(within(chips).getByRole('radio', { name: 'Етикетка' }));
     expect(await screen.findByRole('heading', { name: 'Етикетка' })).toBeInTheDocument();
-    expect(calls.find((c) => c.method === 'PATCH')?.body).toEqual({ category: 'label' });
+    await user.click(within(chips).getByRole('radio', { name: 'Без категорії' }));
+    expect(await screen.findByRole('heading', { name: 'Фото' })).toBeInTheDocument();
+    expect(calls.filter((c) => c.method === 'PATCH').map((c) => c.body)).toEqual([
+      { category: 'label' },
+      { category: null },
+    ]);
 
     await user.click(screen.getByRole('button', { name: 'Видалити фото' }));
     await user.click(screen.getByRole('button', { name: 'Видалити остаточно' }));
     await waitFor(() => expect(router.state.location.pathname).toBe(`/garments/${G}`));
+  });
+});
+
+describe('voice notes', () => {
+  it('records, reviews and saves a voice note with its real format', async () => {
+    usePlatform(fakeMicrophone());
+    let saved: VoiceNote[] = [];
+    const calls = mockApi({
+      'GET /api/v1/me': me,
+      [`GET /api/v1/garments/${G}`]: () => json(200, garment({ media: [], voice_notes: saved })),
+      [`POST /api/v1/garments/${G}/voice-notes/uploads`]: () => {
+        saved = [voiceNote];
+        return json(200, { voice_note: voiceNote, upload: null });
+      },
+    });
+    const user = userEvent.setup();
+    await renderApp(`/garments/${G}`);
+
+    expect(await screen.findByText(/щоб надиктувати спостереження/)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Голос' }));
+    expect(await screen.findByText('Запис')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Зупинити' }));
+
+    expect(await screen.findByText(/Новий запис ·/)).toBeInTheDocument();
+    expect(screen.getByLabelText('Прослухати новий запис')).toHaveAttribute('src');
+    await user.click(screen.getByRole('button', { name: 'Зберегти запис' }));
+
+    await waitFor(() =>
+      expect(calls.some((c) => c.path.endsWith('/voice-notes/uploads'))).toBe(true),
+    );
+    const body = calls.find((c) => c.path.endsWith('/voice-notes/uploads'))?.body;
+    expect(body).toMatchObject({
+      content_type: 'audio/mp4; codecs=mp4a.40.2',
+      size_bytes: 8,
+      duration_ms: expect.any(Number) as number,
+      recorded_at: expect.any(String) as string,
+    });
+    expect(await screen.findByRole('article', { name: 'Нотатка 1' })).toBeInTheDocument();
+    // Back to the capture buttons.
+    expect(screen.getByRole('button', { name: 'Голос' })).toBeInTheDocument();
+  });
+
+  it('explains a denied microphone permission', async () => {
+    const denied = Object.assign(new Error('denied'), { name: 'NotAllowedError' });
+    usePlatform(fakeMicrophone({ getUserMedia: () => Promise.reject(denied) }));
+    mockApi({
+      'GET /api/v1/me': me,
+      [`GET /api/v1/garments/${G}`]: () => json(200, garment({ media: [] })),
+    });
+    const user = userEvent.setup();
+    await renderApp(`/garments/${G}`);
+    await user.click(await screen.findByRole('button', { name: 'Голос' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Немає доступу до мікрофона');
+    await user.click(screen.getByRole('button', { name: 'Закрити' }));
+    expect(screen.getByRole('button', { name: 'Голос' })).toBeInTheDocument();
+  });
+
+  it('explains that recording needs HTTPS', async () => {
+    usePlatform(fakeMicrophone({ secure: false }));
+    mockApi({
+      'GET /api/v1/me': me,
+      [`GET /api/v1/garments/${G}`]: () => json(200, garment({ media: [] })),
+    });
+    const user = userEvent.setup();
+    await renderApp(`/garments/${G}`);
+    await user.click(await screen.findByRole('button', { name: 'Голос' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('HTTPS');
+    expect(screen.queryByRole('button', { name: 'Спробувати знову' })).not.toBeInTheDocument();
+  });
+
+  it('brings back a recording that was not saved before the app closed', async () => {
+    const drafts = memoryVoiceDraftStore([
+      {
+        clientUploadId: 'draft-1',
+        garmentId: G,
+        data: new TextEncoder().encode('fake-aac').buffer,
+        mimeType: 'audio/mp4',
+        durationMs: 61_000,
+        recordedAt: '2026-11-16T10:00:00Z',
+      },
+    ]);
+    usePlatform(fakeMicrophone(), drafts);
+    const calls = mockApi({
+      'GET /api/v1/me': me,
+      [`GET /api/v1/garments/${G}`]: () => json(200, garment({ media: [] })),
+      [`POST /api/v1/garments/${G}/voice-notes/uploads`]: () =>
+        json(200, { voice_note: voiceNote, upload: null }),
+    });
+    const user = userEvent.setup();
+    await renderApp(`/garments/${G}`);
+
+    expect(await screen.findByText('Новий запис 1:01 · Не збережено')).toBeInTheDocument();
+    expect(calls.some((c) => c.path.endsWith('/voice-notes/uploads'))).toBe(false);
+    await user.click(screen.getByRole('button', { name: 'Зберегти запис' }));
+    await waitFor(() => {
+      const call = calls.find((c) => c.path.endsWith('/voice-notes/uploads'));
+      expect(call?.body).toMatchObject({ client_upload_id: 'draft-1' });
+    });
+    await waitFor(async () => expect(await drafts.list(G)).toEqual([]));
+  });
+
+  it('plays saved notes from the authenticated endpoint and deletes after confirmation', async () => {
+    usePlatform(fakeMicrophone());
+    const calls = mockApi({
+      'GET /api/v1/me': me,
+      [`GET /api/v1/garments/${G}`]: () =>
+        json(200, garment({ media: [], voice_notes: [voiceNote] })),
+      [`DELETE /api/v1/voice-notes/${V}`]: () => new Response(null, { status: 204 }),
+    });
+    const user = userEvent.setup();
+    await renderApp(`/garments/${G}`);
+
+    const note = await screen.findByRole('article', { name: 'Нотатка 1' });
+    expect(within(note).getByText(/0:42/)).toBeInTheDocument();
+    expect(within(note).getByLabelText('Відтворити: Нотатка 1')).toHaveAttribute(
+      'src',
+      `/api/v1/voice-notes/${V}/audio`,
+    );
+    await user.click(within(note).getByRole('button', { name: 'Видалити нотатку' }));
+    expect(calls.some((c) => c.method === 'DELETE')).toBe(false);
+    await user.click(within(note).getByRole('button', { name: 'Видалити остаточно' }));
+    await waitFor(() =>
+      expect(calls.some((c) => c.method === 'DELETE' && c.path.endsWith(V))).toBe(true),
+    );
   });
 });

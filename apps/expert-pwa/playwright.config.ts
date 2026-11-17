@@ -18,9 +18,20 @@ export default defineConfig({
   reporter: CI ? [['list'], ['html', { open: 'never' }]] : 'list',
   globalSetup: './tests/e2e/global-setup.ts',
   use: { baseURL: PWA_ORIGIN, trace: 'retain-on-failure' },
+  // The microphone is granted and fed by the browsers' fake capture devices (Chromium: a
+  // generated tone; WebKit: its mock device), so recordings are real MediaRecorder output.
   projects: [
-    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
-    { name: 'webkit-iphone', use: { ...devices['iPhone 15'] } },
+    {
+      name: 'chromium',
+      use: {
+        ...devices['Desktop Chrome'],
+        permissions: ['microphone'],
+        launchOptions: {
+          args: ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream'],
+        },
+      },
+    },
+    { name: 'webkit-iphone', use: { ...devices['iPhone 15'], permissions: ['microphone'] } },
   ],
   webServer: [
     {

@@ -1,8 +1,11 @@
 import { useRef } from 'react';
 
+import { CameraIcon, ImagesIcon } from '../ui/icons';
+
 /**
  * Browser photo source (ARCHITECTURE.md §9). Two buttons backed by hidden file inputs:
- * the camera (`capture`) and the photo library (multiple selection). Opening a picker must
+ * the camera (`capture`, one photo per tap; iOS returns to the app after each shot) and the
+ * photo library (multiple selection). Opening a picker must
  * happen directly in the tap handler, or iOS Safari ignores it; the inputs are visually
  * hidden rather than `display: none`, which some WebKit versions refuse to open. A native shell would
  * replace this component with camera/library plugins.
@@ -34,22 +37,24 @@ export function PhotoPicker({
   };
 
   return (
-    <div className="photo-picker">
+    <>
       <button
         type="button"
-        className="button button--primary"
+        className="button button--primary capture-button"
         disabled={disabled}
         onClick={() => camera.current?.click()}
       >
-        {cameraLabel}
+        <CameraIcon />
+        <span>{cameraLabel}</span>
       </button>
       <button
         type="button"
-        className="button"
+        className="button capture-button"
         disabled={disabled}
         onClick={() => library.current?.click()}
       >
-        {libraryLabel}
+        <ImagesIcon />
+        <span>{libraryLabel}</span>
       </button>
       <input
         ref={camera}
@@ -71,6 +76,6 @@ export function PhotoPicker({
         aria-label={libraryLabel}
         onChange={(event) => handle(event.currentTarget)}
       />
-    </div>
+    </>
   );
 }

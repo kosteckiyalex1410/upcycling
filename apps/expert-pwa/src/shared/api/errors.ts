@@ -23,6 +23,9 @@ const LOCALIZED_ERROR_CODES = [
   'idempotency_conflict',
   'upload_failed',
   'file_unreadable',
+  'invalid_audio',
+  'audio_too_long',
+  'voice_note_limit_reached',
 ] as const;
 
 export type LocalizedErrorCode = (typeof LOCALIZED_ERROR_CODES)[number] | 'unknown';
