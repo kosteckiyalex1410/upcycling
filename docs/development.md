@@ -96,7 +96,7 @@ Camera, service workers, the Secure `__Host-` session cookie and WebCrypto hashi
 
 ```
 iPhone ──HTTPS──▶ Caddy in Docker (iphone-proxy, the only container listening on the LAN)
-                    https://<mac>.local:8443  PWA production build + /api ─▶ API on 127.0.0.1:8001
+                    https://<mac>.local:8443  PWA production build + /api ─▶ API on 127.0.0.1:8010
                     https://<mac>.local:8444  storage (presigned PUTs)    ─▶ SeaweedFS :8333
 ```
 

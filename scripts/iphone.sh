@@ -13,7 +13,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 LAN_HOST="${UPCYCLING_LAN_HOST:-$(scutil --get LocalHostName | tr '[:upper:]' '[:lower:]').local}"
-API_PORT="${UPCYCLING_IPHONE_API_PORT:-8001}"
+API_PORT="${UPCYCLING_IPHONE_API_PORT:-8010}"
 APP_ORIGIN="https://${LAN_HOST}:8443"
 STORAGE_ORIGIN="https://${LAN_HOST}:8444"
 CERT_DIR=.dev-iphone

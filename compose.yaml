@@ -51,7 +51,7 @@ services:
     profiles: ['iphone']
     environment:
       UPCYCLING_LAN_HOST: ${UPCYCLING_LAN_HOST:-localhost}
-      UPCYCLING_IPHONE_API_PORT: ${UPCYCLING_IPHONE_API_PORT:-8001}
+      UPCYCLING_IPHONE_API_PORT: ${UPCYCLING_IPHONE_API_PORT:-8010}
     ports:
       - '8443:8443' # PWA + API
       - '8444:8444' # storage (presigned uploads)

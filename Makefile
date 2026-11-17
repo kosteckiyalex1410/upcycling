@@ -46,7 +46,7 @@ dev-web: ## Run the PWA dev server on :5173 (proxies /api)
 iphone-up: ## HTTPS on the Wi-Fi for a real iPhone: build PWA, start proxy, storage CORS
 	PNPM="$(PNPM)" ./scripts/iphone.sh up
 
-iphone-api: ## Run the API for the iPhone setup (foreground, reload) on 127.0.0.1:8001
+iphone-api: ## Run the API for the iPhone setup (foreground, reload) on 127.0.0.1:8010
 	./scripts/iphone.sh api
 
 iphone-check: ## Check certificate, PWA, API and storage CORS of the iPhone setup
