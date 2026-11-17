@@ -2,7 +2,7 @@
 
 An iPhone-first expert application that analyzes garments, proposes feasible transformations, and records expert feedback as evidence for future model evaluation.
 
-**Status:** Slice 1 — garment projects and original photo capture (camera/library, JPEG/PNG/HEIC, presigned uploads to S3-compatible storage, previews, retry, safe deletion) on top of the Slice 0 foundation (authentication, `uk`/`en`, API contract, quality gates). No AI analysis yet.
+**Status:** Slice 1.1 — camera-first garment capture (one photo gallery, optional categories, JPEG/PNG/HEIC, presigned uploads to S3-compatible storage, previews, retry, safe deletion) and voice notes (record, review, save, play, delete; original audio kept privately; no transcription yet) on top of the Slice 0 foundation (authentication, `uk`/`en`, API contract, quality gates). No AI analysis yet.
 
 | Document | Purpose |
 |---|---|

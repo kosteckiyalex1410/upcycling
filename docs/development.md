@@ -125,7 +125,24 @@ iPhone ──HTTPS──▶ Caddy in Docker (iphone-proxy, the only container li
 1. Safari → `https://<mac>.local:8443/` (`scripts/iphone.sh url` prints it). Sign in with the account's email; the 6-digit code is in Mailpit **on the Mac** (http://localhost:8025).
 2. Installed PWA: Share → Add to Home Screen → open it from the home screen and **sign in again** (the home-screen app has its own cookies, separate from Safari). Enter the 6-digit code in the app; the email link would open Safari instead.
 
-Slice 1 checklist (record results in the PR): camera capture from a category; choosing several photos from the library, including HEIC (does Safari keep HEIC or convert to JPEG? check the format on the photo screen); thumbnails and previews; airplane mode or a weak network during an upload, then Retry; locking the phone or switching apps mid-upload; deleting photos and the garment; the same flow in the installed PWA.
+**Device checklist** (Slice 1 + 1.1; record results in the PR):
+
+1. *Photos:* tap **Зробити фото** several times in a row (each shot returns to the project); choose several photos with **Вибрати фото**, including HEIC (does Safari keep HEIC or convert to JPEG? the photo screen shows the format); all photos appear in one gallery without asking for a category.
+2. *Categories:* open a photo, tap a category chip, go back (label on the thumbnail), change it, then **Без категорії**.
+3. *Uploads:* airplane mode during an upload → «Не завантажено» → Retry; lock the phone or switch apps mid-upload.
+4. *Voice:* tap **Голос** → allow the microphone (first time) → speak ~20 s → **Зупинити** → play the preview → **Зберегти запис**; record a second note; play both from the list after reloading; delete one (confirmation).
+5. *Voice interruptions:* lock the screen while recording → reopen: the recording is kept and marked as interrupted; receive a call while recording; switch apps while recording; record until the 4:30 warning (optional).
+6. *Unsaved recording:* stop a recording, do **not** save, close the app from the app switcher, reopen the project → «Не збережено» with **Зберегти запис**.
+7. *Permissions:* deny the microphone once → the explanation appears; re-enable it (Safari: «Аа» → Параметри вебсайту → Мікрофон).
+8. Steps 1–7 in the **installed** home-screen app (it asks for the microphone separately), then delete photos, voice notes and the project.
+
+**Known browser limitations (voice notes, ADR-0007):**
+
+- iOS stops microphone capture when the app goes to the background or the screen locks; the recording ends there (kept, marked as interrupted). Recording cannot continue in the background.
+- The installed home-screen app has its own microphone permission and cookies; iOS may ask for the microphone again after the app is relaunched.
+- Safari records MP4/AAC, Chrome WebM/Opus (or MP4/AAC); other browsers' formats (e.g. Firefox Ogg) are rejected with a clear message.
+- The local copy of an unsaved recording is best effort: iOS may clear website data of an app that has not been used for a while, and private browsing has no persistent storage.
+- Recording needs HTTPS (or `localhost`); over plain HTTP on the LAN the button explains this instead of recording.
 
 ### When done
 

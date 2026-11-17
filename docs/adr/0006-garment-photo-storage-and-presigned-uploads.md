@@ -3,7 +3,8 @@
 - **Status:** accepted
 - **Date:** 2026-11-16
 - **Deciders:** product owner (Slice 1 decisions), Claude Code (author)
-- **Related:** ADR-0003 (sessions, CSRF), ADR-0005 (same-origin topology), `ARCHITECTURE.md` §5–§6, §12 open decisions 1 and 5
+- **Related:** ADR-0003 (sessions, CSRF), ADR-0005 (same-origin topology), ADR-0007 (voice notes, optional photo category), `ARCHITECTURE.md` §5–§6, §12 open decisions 1 and 5
+- **Amended:** 2026-11-17 by ADR-0007 — the photo category is optional; the same protocol and sweep also cover voice recordings.
 
 ## Context and problem
 
@@ -37,7 +38,7 @@ The production storage provider is **not** chosen (open decision 1); everything 
 
 ### Upload protocol (all steps idempotent)
 
-1. `POST /api/v1/garments/{id}/media/uploads` with `client_upload_id` (idempotency key), category, declared type, size and SHA-256 (computed in the browser with WebCrypto). The server checks ownership, the declared type (JPEG, PNG, HEIC/HEIF) and the size limit, creates a `pending` row, and returns a presigned **PUT** for `uploads/{media_id}`. Calling again with the same key returns the same photo with a fresh URL (e.g. after expiry); a different payload under the same key is `409 idempotency_conflict`.
+1. `POST /api/v1/garments/{id}/media/uploads` with `client_upload_id` (idempotency key), optional category, declared type, size and SHA-256 (computed in the browser with WebCrypto). The server checks ownership, the declared type (JPEG, PNG, HEIC/HEIF) and the size limit, creates a `pending` row, and returns a presigned **PUT** for `uploads/{media_id}`. Calling again with the same key returns the same photo with a fresh URL (e.g. after expiry); a different payload under the same key is `409 idempotency_conflict`.
 2. The browser PUTs the bytes to storage. The signature covers **`Content-Type`, `Content-Length` and `x-amz-checksum-sha256`**: storage rejects a different type, a different length or different bytes. URLs expire after 15 minutes (`UPCYCLING_UPLOAD_URL_TTL_SECONDS`). The request is cross-origin and carries **no cookies**.
 3. `POST /api/v1/garments/{id}/media/complete` with `media_id`. The server re-reads the staging object (capped at the size limit), recomputes size and SHA-256, detects the real type from magic bytes, fully decodes the image (Pillow + `pi-heif`), and checks the pixel limit. On success it writes the verified bytes to `originals/{garment_id}/{media_id}` (never re-encoded), renders a 1600 px preview and a 400 px thumbnail (JPEG, orientation applied, **all metadata stripped**), marks the photo `ready`, and deletes the staging object. On failure the photo becomes `rejected` with a stable `error_code` and its bytes are deleted. `409 upload_incomplete` means "bytes not there yet, retry".
 
