@@ -127,10 +127,10 @@ iPhone ──HTTPS──▶ Caddy in Docker (iphone-proxy, the only container li
 
 **Device checklist** (Slice 1 + 1.1; record results in the PR):
 
-1. *Photos:* tap **Зробити фото** several times in a row (each shot returns to the project); choose several photos with **Вибрати фото**, including HEIC (does Safari keep HEIC or convert to JPEG? the photo screen shows the format); all photos appear in one gallery without asking for a category.
-2. *Categories:* open a photo, tap a category chip, go back (label on the thumbnail), change it, then **Без категорії**.
+1. *Photos by category:* with **Перед** selected, tap **Зробити фото**; tap **Спинка**, take another; tap **Етикетка** and choose several photos with **Вибрати фото**, including HEIC (does Safari keep HEIC or convert to JPEG? the photo screen shows the format). All photos appear in one gallery with the right labels; the selected chip stays selected.
+2. *Recategorize:* open a photo, tap another category chip, go back (label updated), then **Без категорії**. Rename the project with the pencil; delete it later via **⋯**.
 3. *Uploads:* airplane mode during an upload → «Не завантажено» → Retry; lock the phone or switch apps mid-upload.
-4. *Voice:* tap **Голос** → allow the microphone (first time) → speak ~20 s → **Зупинити** → play the preview → **Зберегти запис**; record a second note; play both from the list after reloading; delete one (confirmation).
+4. *Voice:* tap **Записати голос** → allow the microphone (first time) → speak ~20 s → **Зупинити** → play the preview → **Зберегти запис**; record a second note; play both from the list after reloading; delete one (confirmation).
 5. *Voice interruptions:* lock the screen while recording → reopen: the recording is kept and marked as interrupted; receive a call while recording; switch apps while recording; record until the 4:30 warning (optional).
 6. *Unsaved recording:* stop a recording, do **not** save, close the app from the app switcher, reopen the project → «Не збережено» with **Зберегти запис**.
 7. *Permissions:* deny the microphone once → the explanation appears; re-enable it (Safari: «Аа» → Параметри вебсайту → Мікрофон).

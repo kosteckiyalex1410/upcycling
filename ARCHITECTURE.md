@@ -1,7 +1,7 @@
 # Upcycling AI Design Studio — System Architecture
 
 **Version:** 0.4  
-**Status:** Slice 0–1.1 implemented; Design Studio strategy and expert-knowledge architecture in [ADR-0008](docs/adr/0008-design-studio-first-and-expert-knowledge-architecture.md)  
+**Status:** Slice 0–1.1 implemented; Design Studio strategy in [ADR-0008](docs/adr/0008-design-studio-first-and-expert-knowledge-architecture.md); proposal visualizations and versioned iterations in [ADR-0009](docs/adr/0009-proposal-visualizations-and-versioned-design-iterations.md)  
 **Product baseline:** PRODUCT.md v0.3  
 **Documentation language:** English  
 **Initial UI locales:** `uk`, `en`  
@@ -18,7 +18,7 @@ Priority order:
 4. Replaceable AI capabilities and measurable model quality.
 5. Operational simplicity and reasonable inference costs.
 
-**Explicit non-goals for Stage 1:** microservices, Kubernetes, automated retraining, real-time model weight updates, consumer/shopping features (Stage 2), generative before/after previews, a separate vector database without evaluation and an ADR, or a native mobile application.
+**Explicit non-goals for Stage 1:** microservices, Kubernetes, automated retraining, real-time model weight updates, consumer/shopping features (Stage 2), a separate vector database without evaluation and an ADR, or a native mobile application.
 
 ## 2. System context
 
@@ -128,11 +128,12 @@ Create folders when needed by a vertical slice; do not generate empty abstractio
 | `voice_note_transcripts` *(planned)* | id, voice_note_id, source (`machine`\|`expert`), text, language, provider/model/prompt provenance, supersedes_id, created_by, created_at | Machine and expert-corrected transcripts are separate rows; audio is never replaced ([ADR-0007](docs/adr/0007-voice-notes-and-uncategorized-photos.md)) |
 | `analysis_runs` *(planned)* | id, garment_id, status, schema_version, model_id, prompt_version, parameters, input_refs (media, notes, transcripts), raw_output_key, structured_output, created_at | Immutable completed outputs; a garment can have many |
 | `recommendation_generations` *(planned)* | id, garment_id, analysis_run_id, trigger (`initial`\|`feedback`\|`regenerate`), context_refs (feedback, turns, knowledge items used), model_id, prompt_version, parameters, created_at | One suggestion batch; records exactly which expert knowledge was in the context |
-| `recommendations` *(planned)* | id, generation_id, analysis_run_id, operation_code, target, rationale, risk, feasibility, supersedes_recommendation_id, created_at | Stable per-suggestion IDs; a revision is a new row |
+| `recommendations` (proposals) *(planned)* | id, generation_id, analysis_run_id, source media ids, title, description, construction changes, operation codes, limitations, feasibility (assessment, separate from the image), parent_proposal_id, version, created_at | Immutable; a revision is a new row with a new text **and** a new image ([ADR-0009](docs/adr/0009-proposal-visualizations-and-versioned-design-iterations.md)) |
+| `proposal_images` *(planned)* | id, proposal_id, status, object key `generated/{garment}/{proposal}/{image}`, checksum, source media ids, image model, prompt version, parameters (seed), raw response key, created_at | AI visualization, always labelled as such; never evidence of feasibility or of a real outcome |
 | `conversations` *(planned)* | id, garment_id, created_at | Conversation scoped to a garment |
 | `conversation_turns` *(planned)* | id, conversation_id, role, text, source_media_id / source_voice_note_id, model_id, created_at | Append-only; user and assistant turns |
 | `expert_feedback` *(planned)* | id, garment_id, recommendation_id nullable, decision (`approve`\|`reject`\|`modify`\|`alternative`\|`regenerate`\|`uncertain`), comment, source_turn_id / voice_note_id nullable, created_at | The expert's own words are always kept; decisions are never inferred from conversation |
-| `feedback_labels` *(planned)* | id, feedback_id, label_code (e.g. rejection reason), source (`expert_selected`\|`ai_extracted`), review_status, model provenance if extracted, created_at | Structured labels next to, never instead of, the original feedback |
+| `feedback_labels` *(planned)* | id, feedback_id, dimension (`aesthetic`\|`feasibility`\|`visual_accuracy`\|`construction`), label_code (e.g. rejection reason), source (`expert_selected`\|`ai_extracted`), review_status, model provenance if extracted, created_at | Structured labels next to, never instead of, the original feedback; image feedback separated from design feedback |
 | `attribute_corrections` *(planned)* | id, garment_id, analysis_run_id, attribute_path, original_value, corrected_value, expert_id, created_at | Do not overwrite predictions |
 | `verified_labels` *(planned)* | id, garment_id, attribute_path, value, evidence (media ids, correction id), verified_by, created_at | Explicitly verified facts (e.g. composition from a care label); distinct from corrections |
 | `expert_knowledge_items` *(planned, Slice 5)* | id, owner_id, kind (`rule`\|`case`\|`preference`), content, source refs (feedback, corrections, projects), status (`proposed`\|`active`\|`retired`), created_at | Cross-project memory; derived from expert data with provenance; candidates proposed by AI need expert confirmation |
@@ -262,6 +263,9 @@ class DefectUnderstanding(Protocol):
 class TransformationRecommender(Protocol):
     async def recommend(self, request: "RecommendationRequest") -> "RecommendationResult": ...
 
+class TransformationVisualizer(Protocol):  # Slice 3, image-conditioned on source photos
+    async def visualize(self, request: "VisualizationRequest") -> "VisualizationResult": ...
+
 class SpeechTranscriber(Protocol):
     async def transcribe(self, request: "TranscriptionRequest") -> "TranscriptionResult": ...
 ```
@@ -273,9 +277,10 @@ These are **logical capability contracts**, not a requirement for five models or
 1. Worker loads validated image references and project context.
 2. Orchestrator invokes VLM with a versioned prompt and strict output schema.
 3. Validate response using Pydantic; on invalid output, retry within a bounded budget or fail explicitly.
-4. Generate 3–5 suggestions where warranted, using an operation catalog with feasibility/risk constraints.
-5. Persist immutable run, provenance, suggestions and uncertainty notes.
-6. Return localized explanation text (or generate it for the selected locale) while keeping operation codes language-neutral.
+4. Generate 3–5 proposals where warranted, using an operation catalog with feasibility/risk constraints.
+5. For each proposal, queue an image-conditioned visualization from the source photos (separate job; per-proposal status; failures shown, never replaced by stock images) ([ADR-0009](docs/adr/0009-proposal-visualizations-and-versioned-design-iterations.md)).
+6. Persist immutable runs, proposals, images, provenance and uncertainty notes.
+7. Return localized explanation text (or generate it for the selected locale) while keeping operation codes language-neutral.
 
 **Safety and epistemic limits:** visual appearance does not prove fabric composition, stretch, internal seam construction, stain chemistry, or feasibility of pocket removal. Use `unknown`, ask for close-up photos or expert confirmation, and label feasibility as an assessment, not a guarantee.
 
@@ -334,7 +339,7 @@ An immutable export manifest should include example IDs, media checksums, annota
 
 - A **frozen, versioned evaluation set** of real projects, split by garment/project; projects in the evaluation set are excluded from the memory and from any training data used for the compared configuration.
 - Configurations compared on the same inputs: **baseline** (no expert memory), **A** (with project feedback), **B** (with cross-project memory); later, ranking or fine-tuned variants.
-- Metrics: analysis accuracy against verified labels; suggestion acceptance; technical feasibility; novelty/diversity (avoid rewarding safe, repetitive ideas); expert editing effort; time to first useful suggestion; retrieval relevance; quality change across iterations; latency and cost.
+- Metrics: analysis accuracy against verified labels; suggestion acceptance; technical feasibility; visual fidelity of generated images to the original garment (and invented details); novelty/diversity (avoid rewarding safe, repetitive ideas); expert editing effort; time to first useful suggestion; retrieval relevance; quality change across iterations; latency and cost.
 - Expert judgments are collected blind to the configuration where practical. With one expert, results are expert-specific and noisy: report sample sizes and avoid over-claiming.
 - A minimal harness is needed before Slice 5 ships memory (proposed in ADR-0008); Slice 6 makes it a reproducible framework with dataset manifests.
 
@@ -359,6 +364,8 @@ The first 50 garments are a **product-validation and initial benchmark set**, no
 - Network-aware upload retry, visible progress, and clear failure states.
 - Translation keys for all user-facing strings; selected locale persisted.
 - Accessible, touch-first controls and minimal typing.
+
+**Project screen structure.** A design project has a compact header and views: **Materials** (implemented: photo capture by category, gallery, voice and text notes), **AI Ideas** (Slice 2–3: analysis, proposal cards with generated image first) and **History** (Slice 4: analyses, proposals, feedback, revisions). Views are siblings under the project header, so navigation between them can be added without rewriting Materials; no empty placeholder views ship before their slice.
 
 ### Platform abstraction
 
@@ -397,18 +404,19 @@ Order and status follow [ADR-0008](docs/adr/0008-design-studio-first-and-expert-
 - Create garment, take/select images, signed upload, finalize media, list/reopen garment.
 - Test retries, oversized images, permission denial and invalid ownership.
 
-### Slice 1.1 — Unified photo gallery and voice notes *(implemented; iPhone verification pending)*
-- One photo gallery with optional categories assigned later; bottom capture bar (camera, library, voice).
+### Slice 1.1 — Mobile capture UX and voice notes *(implemented; iPhone verification pending)*
+- Compact project header (rename, secondary menu with delete); category chips that stay selected (photos taken or chosen get that category; "no category" possible); Take/Choose photo actions; one gallery with category labels; recategorize later.
 - Voice notes: record, review, save, play, delete; original audio stored privately; no transcription ([ADR-0007](docs/adr/0007-voice-notes-and-uncategorized-photos.md)).
 
 ### Slice 2 — AI garment analysis *(next)*
 - Async job, VLM adapter, schema validation, immutable analysis record with full provenance and UI rendering; multiple analyses per garment.
 - Test provider timeout, invalid output, unknown fabric and missing photos.
 
-### Slice 3 — AI upcycling suggestions
-- Operation catalog, risk/feasibility metadata, suggestion batches (generations) and suggestion cards with history.
+### Slice 3 — AI transformation suggestions + generated visualizations
+- Operation catalog, risk/feasibility metadata, proposal batches (generations); every proposal has text **and** an image-conditioned visualization stored privately with provenance ([ADR-0009](docs/adr/0009-proposal-visualizations-and-versioned-design-iterations.md)); proposal cards (image first) in an AI Ideas view; before/after comparison view.
 
-### Slice 4 — Expert review and iterative design
+### Slice 4 — Expert review and iterative regeneration
+- Each revision regenerates text and image; image-specific feedback (visual accuracy) is kept apart from design feedback; History view.
 - Approve/reject/modify/alternative/regenerate, optional rejection reasons, voice/text feedback, transcription (machine and expert-corrected), conversation turns, within-project adaptation (mechanism A) and provenance.
 - Test that rejected suggestions stay rejected, revisions get new IDs and decisions are never inferred from voice.
 
@@ -435,7 +443,7 @@ Order and status follow [ADR-0008](docs/adr/0008-design-studio-first-and-expert-
 
 1. Hosting provider and S3-compatible storage provider. *Constrained by [ADR-0005](docs/adr/0005-same-origin-deployment-topology.md): must support same-origin routing of PWA and `/api`; storage must meet the provider requirements in [ADR-0006](docs/adr/0006-garment-photo-storage-and-presigned-uploads.md) (HTTPS endpoint reachable from the iPhone, bucket CORS, signed checksums).*
 2. ~~Initial identity mechanism~~ — **resolved** by [ADR-0003](docs/adr/0003-authentication-email-magic-link.md). Still open: production email (SMTP) provider.
-3. Initial VLM and speech providers, chosen after quality/cost tests.
+3. Initial VLM, speech and image-generation providers, chosen after quality/cost tests (sending photos to a generation provider also falls under 5).
 4. Whether reliable offline photo capture is a hard requirement; if yes, revisit native-first strategy.
 5. Data retention period, training permissions and deletion semantics. *Interim rule ([ADR-0006](docs/adr/0006-garment-photo-storage-and-presigned-uploads.md)): expert deletion is permanent for rows and objects.*
 6. Exact annotation schema for defect geometry and fabric taxonomy after first expert trials.

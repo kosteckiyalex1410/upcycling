@@ -45,12 +45,12 @@ Specialized fashion AI (task-specific models, retrieval, fine-tuning — formerl
 |---|---|---|
 | 0 | Foundation | Done |
 | 1 | Garment capture & persistence | Implemented (PR #2) |
-| 1.1 | Unified photo gallery & voice notes | Implemented (PR #2); real-iPhone verification pending |
+| 1.1 | Mobile capture UX & voice notes | Implemented (PR #2); real-iPhone verification pending |
 | 2 | AI garment analysis | Next |
-| 3 | AI upcycling suggestions | Planned |
-| 4 | Expert review & iterative design | Planned |
+| 3 | AI transformation suggestions + generated visualizations | Planned |
+| 4 | Expert review & iterative regeneration | Planned |
 | 5 | Cross-project expert memory | Planned |
-| 6 | Evaluation & dataset preparation | Planned |
+| 6 | Evaluation & dataset | Planned |
 | 7 | Real transformation outcomes (before/after) | Planned |
 | 8 | Commercial Upcycling Assistant (Stage 2) | Requires separate approval |
 
@@ -61,11 +61,11 @@ Technical scope per slice: `ARCHITECTURE.md` §11. The list is a plan, not permi
 | Capability | Status |
 |---|---|
 | Sign-in (email link / 6-digit code), `uk`/`en` | Implemented |
-| Projects, photo capture, one gallery, optional categories | Implemented |
+| Projects, photo capture per selected category, one gallery, recategorize later | Implemented |
 | Voice notes (original audio stored; playback; deletion) | Implemented; iPhone recording not yet verified on a device |
 | Typed project notes | Implemented |
 | Transcription of voice notes | Planned (Slice 4; Slice 2 may transcribe for analysis context) |
-| AI garment analysis, suggestions, iterative refinement | Planned (Slices 2–4) |
+| AI garment analysis, suggestions with generated visualizations, iterative regeneration | Planned (Slices 2–4) |
 | Cross-project expert memory | Planned (Slice 5); approach to be chosen by evaluation |
 | Evaluation framework, dataset exports | Planned (Slice 6) |
 | Model fine-tuning | Not planned until justified by evaluation |
@@ -99,7 +99,7 @@ The workflow is iterative: a project may have several analyses, several suggesti
 
 **Step 1 — Create a project and capture the garment** *(implemented)*
 
-The stylist creates a design project on an iPhone and takes several photos in a row without choosing categories (front, back, details, fabric, defects, labels). Categories can be assigned later.
+The stylist creates a design project on an iPhone and works on one compact screen: **select category → take photo → change category → take photo**. Category chips (front, back, detail, fabric, defect, label, or no category) stay selected until changed; every photo taken or chosen gets the selected category. All photos appear in one gallery with their category; a category can be changed later on the photo screen.
 
 **Step 2 — Record observations** *(implemented: audio and text are stored; transcription planned)*
 
@@ -109,17 +109,19 @@ The stylist optionally records voice notes ("A men's wool blazer from the 1990s;
 
 The AI analyzes the photos (and available notes) and produces structured garment information: garment type, construction elements, visible fabric characteristics, potential defects, and explicitly uncertain attributes. It may ask for more photos or clarification.
 
-**Step 4 — AI suggestions** *(planned, Slice 3)*
+**Step 4 — AI suggestions with visualizations** *(planned, Slice 3)*
 
-The AI generates several possible transformations. Each includes the target garment element, proposed modification, expected aesthetic effect, technical feasibility assessment, risks and explanation.
+The AI generates several possible transformations. **Every proposal has text and a generated image of the expected result** ([ADR-0009](docs/adr/0009-proposal-visualizations-and-versioned-design-iterations.md)): title, concise description, key construction changes, known material/feasibility limits, and an image generated from the actual garment photos that keeps the garment's fabric, colour, texture, buttons, pockets and other details unless the transformation changes them. Example: an oversized men's blazer → "Cropped women's blazer": shorten, keep the lapels and shoulder structure, reconstruct the hem — with an image of *this* blazer cropped.
+
+The image is clearly labelled as an AI visualization. A plausible image does not prove the transformation is feasible: the visual concept, the feasibility assessment, the expert's validation and the actual result are separate. On a phone the image comes first; the stylist can compare the original and the proposal side by side or full screen.
 
 **Step 5 — Expert review** *(planned, Slice 4)*
 
-For each suggestion the stylist can approve, reject, modify, add feedback (voice or text), propose an alternative idea, or request regeneration. Optional one-tap rejection reasons: insufficient fabric, unsuitable material, construction limitations, excessive complexity, poor aesthetic result, other. No complex forms.
+For each suggestion the stylist can approve, reject, modify, add feedback (voice or text), propose an alternative idea, or request regeneration. Feedback can be about the design ("not enough fabric", "the fabric cannot hold this shape") or about the picture ("the image added pockets that do not exist"); the system keeps these apart. Optional one-tap rejection reasons: insufficient fabric, unsuitable material, construction limitations, excessive complexity, poor aesthetic result, other. No complex forms.
 
 **Step 6 — Iterative refinement** *(planned, Slice 4)*
 
-The AI generates revised suggestions that take the feedback and the project history into account (e.g. "Keep the sleeves. I want a more avant-garde transformation."). Revised suggestions are new versions; earlier suggestions and decisions remain unchanged.
+The AI generates revised suggestions that take the feedback and the project history into account (e.g. "Keep the sleeves. I want a more avant-garde transformation."). Each revision has an updated description **and** an updated image. Revised suggestions are new versions; earlier suggestions, images and decisions remain unchanged, so the History view can show how the design evolved.
 
 **Step 7 — Expert knowledge for future projects** *(planned, Slice 5)*
 
@@ -184,7 +186,7 @@ The stylist will be able to document completed transformations:
 - Final transformation and after photographs.
 - Materials used, construction challenges and time required.
 - Expert evaluation of the result.
-- Differences between the AI proposal and the actual result.
+- Differences between the AI proposal (text and visualization) and the actual result.
 
 Do not assume that a recommendation was executed. Verified outcomes are the most valuable data for future evaluation and, if justified, model training.
 
@@ -235,6 +237,7 @@ The platform must preserve, with source and provenance:
 - Original images and original audio recordings.
 - Machine-generated transcripts and expert-corrected transcripts (separately).
 - AI analyses and AI-generated suggestions, with model and prompt versions, generation parameters, input references and timestamps.
+- AI-generated proposal images (labelled as AI visualizations), with the source photos, models, prompts and parameters used.
 - Expert decisions, comments, alternatives, preferences and regeneration requests.
 - Expert corrections and verified labels.
 - Suggestion revisions and refinement history.
@@ -285,6 +288,7 @@ Metrics (to be defined precisely in Slice 6; a minimal version earlier):
 - Garment analysis accuracy against verified labels.
 - Suggestion acceptance rate.
 - Technical feasibility.
+- Visual fidelity of generated images to the original garment.
 - Design novelty and diversity.
 - Expert editing effort.
 - Time to first useful suggestion.

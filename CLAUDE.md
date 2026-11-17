@@ -105,6 +105,7 @@ Final implementation report must include:
 - Keep the three expert-knowledge mechanisms distinct: within-project context adaptation, cross-project expert memory (retrieval/rules/ranking), and explicit training. Never describe the system as "self-learning" unless training exists and has been evaluated.
 - Keep five knowledge sources separate: AI predictions, expert observations, expert corrections, expert preferences/decisions, verified facts/outcomes. Structured labels extracted by AI from expert words are separate, marked as unreviewed, and never replace the original words.
 - Every AI generation records model, prompt version, parameters, input references and the expert knowledge it used.
+- Generated proposal images are AI visualizations: always labelled as such, stored immutably and privately with provenance, never treated as evidence of feasibility or as photos of a real outcome (ADR-0009).
 - Measure improvements against a frozen evaluation set (baseline vs. project feedback vs. cross-project memory); acceptance rate alone is not a success metric.
 - Dataset exports must have immutable manifests, versioning, selection criteria, provenance, and leakage-aware evaluation splits.
 - Do not introduce model training, a vector database, or a model registry until a concrete slice and evaluation justify it.
@@ -136,17 +137,17 @@ Create an ADR under `docs/adr/` for decisions that change a durable system bound
 - Consequences, risks, and reversibility.
 - Date and status (`proposed`, `accepted`, or `superseded`).
 
-**Open decisions — do not silently lock in:** hosting/object storage provider; production email provider; initial VLM/speech providers; hard offline requirement; data retention and training consent; defect geometry and fabric taxonomy; project vs. garment cardinality; cross-project memory approach; Stage 2 scope and data reuse. See `ARCHITECTURE.md` §12. Authentication is decided in ADR-0003; the photo upload/storage protocol (provider-independent) in ADR-0006; voice notes in ADR-0007; the Design Studio strategy and expert-knowledge architecture in ADR-0008.
+**Open decisions — do not silently lock in:** hosting/object storage provider; production email provider; initial VLM/speech/image-generation providers; hard offline requirement; data retention and training consent; defect geometry and fabric taxonomy; project vs. garment cardinality; cross-project memory approach; Stage 2 scope and data reuse. See `ARCHITECTURE.md` §12. Authentication is decided in ADR-0003; the photo upload/storage protocol (provider-independent) in ADR-0006; voice notes in ADR-0007; the Design Studio strategy and expert-knowledge architecture in ADR-0008; proposal visualizations and versioned iterations in ADR-0009.
 
 ## 9. Delivery order and definition of done
 
 Follow the vertical-slice order (details and status: `ARCHITECTURE.md` §11, [ADR-0008](docs/adr/0008-design-studio-first-and-expert-knowledge-architecture.md)); implement only the current slice:
 
 0. Foundation.
-1. Garment capture and persistence. 1.1 Unified photo gallery and voice notes.
+1. Garment capture and persistence. 1.1 Mobile capture UX and voice notes.
 2. AI garment analysis.
-3. AI upcycling suggestions.
-4. Expert review and iterative design (within-project adaptation, transcription).
+3. AI transformation suggestions + generated visualizations (every proposal has text and an image; ADR-0009).
+4. Expert review and iterative regeneration (within-project adaptation, transcription).
 5. Cross-project expert memory (simplest measurable approach first, with a baseline comparison).
 6. Evaluation and dataset preparation.
 7. Real transformation outcomes (before/after).

@@ -2,7 +2,7 @@
 
 An iPhone-first, internal expert platform in which a professional stylist works with AI on real garments: capture, analysis, transformation suggestions, review and iteration. Every observation, AI output and expert decision is kept with provenance so that expert knowledge can measurably improve future suggestions. A commercial Upcycling Assistant is a later stage ([ADR-0008](docs/adr/0008-design-studio-first-and-expert-knowledge-architecture.md), [PRODUCT.md](PRODUCT.md)).
 
-**Status:** Slice 1.1 — camera-first garment capture (one photo gallery, optional categories, JPEG/PNG/HEIC, presigned uploads to S3-compatible storage, previews, retry, safe deletion) and voice notes (record, review, save, play, delete; original audio kept privately; no transcription yet) on top of the Slice 0 foundation (authentication, `uk`/`en`, API contract, quality gates). No AI analysis yet.
+**Status:** Slice 1.1 — compact mobile capture (category chips that stay selected, take/choose photos, one gallery with category labels, recategorize later, JPEG/PNG/HEIC, presigned uploads to S3-compatible storage, previews, retry, safe deletion) and voice notes (record, review, save, play, delete; original audio kept privately; no transcription yet) on top of the Slice 0 foundation (authentication, `uk`/`en`, API contract, quality gates). No AI analysis yet.
 
 | Document | Purpose |
 |---|---|

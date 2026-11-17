@@ -3,6 +3,7 @@
 - **Status:** accepted
 - **Date:** 2026-11-17
 - **Deciders:** product owner (data model and audio verification approach approved 2026-11-17), Claude Code (author)
+- **Amended:** 2026-11-17 (Slice 1.1 UI correction) — capture is per selected category again; see "Photos" below
 - **Related:** ADR-0006 (storage and upload protocol), `ARCHITECTURE.md` §5–§7, open decision 3 (speech provider), open decision 5 (retention and consent)
 
 ## Context and problem
@@ -32,8 +33,8 @@ Real-world use is a stylist in a secondhand shop holding garments with one hand.
 
 ### Photos
 
-- `media_assets.category` is nullable. New uploads default to no category; the expert can assign, change or remove it later (`PATCH /media/{id}` with `{"category": null}` removes it). Existing photos keep their category. The category values themselves are unchanged and stay stable API codes.
-- The PWA shows one gallery with category labels on thumbnails; capture actions (camera, library, voice) sit in a bar at the bottom edge of the screen.
+- `media_assets.category` is nullable, so uncategorized photos are possible; the expert can assign, change or remove a category later (`PATCH /media/{id}` with `{"category": null}` removes it). Existing photos keep their category. The category values themselves are unchanged and stay stable API codes.
+- **Capture is per category** (correction of the first 1.1 UI, which captured without categories): a row of category chips (Front … Label, plus "No category") stays selected; every photo taken or chosen gets the selected category until it is changed. One Take photo and one Choose photos action; one gallery with category labels on thumbnails. Default selection: Front.
 
 ### Voice notes
 

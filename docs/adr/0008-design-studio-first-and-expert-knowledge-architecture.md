@@ -67,12 +67,12 @@ Improvements must be measured against a stable, versioned evaluation set split b
 |---|---|---|
 | 0 | Foundation | done (merged) |
 | 1 | Garment capture & persistence | implemented (PR #2) |
-| 1.1 | Unified photo gallery & voice notes | implemented (PR #2), iPhone verification pending |
+| 1.1 | Mobile capture UX & voice notes | implemented (PR #2), iPhone verification pending |
 | 2 | AI garment analysis | next, not started |
-| 3 | AI upcycling suggestions | planned |
-| 4 | Expert review & iterative design (mechanism A, transcription) | planned |
+| 3 | AI transformation suggestions + generated visualizations ([ADR-0009](0009-proposal-visualizations-and-versioned-design-iterations.md)) | planned |
+| 4 | Expert review & iterative regeneration (mechanism A, transcription) | planned |
 | 5 | Cross-project expert memory (mechanism B) | planned — *proposed: starts with a minimal evaluation harness, see below* |
-| 6 | Evaluation & dataset preparation | planned |
+| 6 | Evaluation & dataset | planned |
 | 7 | Real transformation outcomes (before/after) | planned (was Slice 5) |
 | 8 | Commercial Upcycling Assistant | Stage 2, needs separate approval |
 
