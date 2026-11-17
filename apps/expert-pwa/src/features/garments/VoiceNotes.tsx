@@ -19,7 +19,7 @@ export function RecordButton({ voice }: { voice: Voice }) {
   return (
     <button
       type="button"
-      className="button capture-button capture-button--voice"
+      className="button button--record"
       onClick={() => void voice.recorder.start()}
     >
       <MicIcon />
@@ -63,7 +63,7 @@ export function RecorderPanel({ voice }: { voice: Voice }) {
           )}
           <button
             type="button"
-            className="button button--danger-solid capture-button"
+            className="button button--danger-solid recorder__stop"
             onClick={() => voice.recorder.stop()}
           >
             <StopIcon />
@@ -139,30 +139,22 @@ export function VoiceNoteList({
   voice: Voice;
 }) {
   const { t } = useTranslation();
-  const count = notes.filter((n) => n.status === 'ready').length;
-  const empty = notes.length === 0 && voice.items.length === 0;
+  if (notes.length === 0 && voice.items.length === 0) {
+    return <p className="hint empty">{t('voice.empty')}</p>;
+  }
   return (
-    <section aria-labelledby="voice-heading" className="garment-section">
-      <h2 id="voice-heading">
-        {t('voice.heading')} {count > 0 && <span className="count">{count}</span>}
-      </h2>
-      {empty ? (
-        <p className="hint">{t('voice.empty')}</p>
-      ) : (
-        <ul className="voice-list">
-          {notes.map((note, index) => (
-            <li key={note.id}>
-              <VoiceNoteRow garmentId={garmentId} note={note} number={index + 1} />
-            </li>
-          ))}
-          {voice.items.map((item) => (
-            <li key={item.id}>
-              <VoiceUploadRow item={item} voice={voice} />
-            </li>
-          ))}
-        </ul>
-      )}
-    </section>
+    <ul className="voice-list" aria-label={t('voice.heading')}>
+      {notes.map((note, index) => (
+        <li key={note.id}>
+          <VoiceNoteRow garmentId={garmentId} note={note} number={index + 1} />
+        </li>
+      ))}
+      {voice.items.map((item) => (
+        <li key={item.id}>
+          <VoiceUploadRow item={item} voice={voice} />
+        </li>
+      ))}
+    </ul>
   );
 }
 

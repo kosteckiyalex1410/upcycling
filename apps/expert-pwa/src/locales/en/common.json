@@ -101,26 +101,26 @@
   },
   "garment": {
     "untitled": "Untitled project",
-    "createdOn": "Created {{date}}",
     "back": "All projects",
-    "details": "Name and notes",
     "titleLabel": "Name",
     "titlePlaceholder": "e.g. Denim jacket",
-    "notesLabel": "Notes",
     "photos": "Photos",
     "takePhoto": "Take photo",
     "choosePhotos": "Choose photos",
-    "noPhotos": "No photos yet. Tap “Take photo” at the bottom of the screen.",
+    "noPhotos": "No photos yet.",
     "delete": "Delete project",
     "deleteConfirm": "Delete this project, all its photos and voice notes permanently? This cannot be undone.",
     "leaveTitle": "Not everything is saved yet.",
     "leaveBody": "If you leave now, unfinished photos and voice notes may not be saved.",
     "leave": "Leave",
     "stay": "Stay",
-    "notesPlaceholder": "Or dictate: tap “Voice” at the bottom",
     "openPhoto": "Open photo {{number}}",
     "openPhotoCategory": "Open photo {{number}}: {{category}}",
-    "captureBar": "Photos and voice"
+    "captureCategory": "Category for the next photos",
+    "rename": "Rename",
+    "moreActions": "More actions",
+    "notes": "Notes",
+    "textNote": "Text note"
   },
   "categories": {
     "front": "Front",
@@ -159,9 +159,9 @@
     "noCategory": "No category"
   },
   "voice": {
-    "record": "Voice",
+    "record": "Record voice",
     "heading": "Voice notes",
-    "empty": "Tap “Voice” at the bottom to dictate observations instead of typing.",
+    "empty": "No voice notes yet.",
     "requesting": "Allow access to the microphone…",
     "recording": "Recording",
     "elapsed": "{{elapsed}} / {{max}}",
@@ -195,6 +195,7 @@
     "newNote": "New recording {{duration}}",
     "notSaved": "Not saved",
     "saveFailed": "Not saved on the server",
-    "progressLabel": "Uploading voice note"
+    "progressLabel": "Uploading voice note",
+    "recorderLabel": "Voice recording"
   }
 }

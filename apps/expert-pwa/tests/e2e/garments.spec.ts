@@ -31,11 +31,13 @@ async function newProject(page: Page) {
 }
 
 const gallery = (page: Page) => page.getByRole('region', { name: /^Фото/ });
-const voiceSection = (page: Page) => page.getByRole('region', { name: /^Голосові нотатки/ });
-const captureBar = (page: Page) => page.getByRole('toolbar', { name: 'Фото та голос' });
+const voiceSection = (page: Page) => page.getByRole('region', { name: 'Нотатки', exact: true });
+/** Recording controls, docked at the bottom while recording or reviewing. */
+const recorder = (page: Page) => page.getByRole('region', { name: 'Запис голосу' });
+const categoryChips = (page: Page) => page.getByRole('group', { name: 'Категорія наступних фото' });
 
 /** The library input behind "Choose photos" (what iOS fills after the photo picker). */
-const libraryInput = (page: Page) => captureBar(page).locator('input[type="file"][multiple]');
+const libraryInput = (page: Page) => page.locator('input[type="file"][multiple]');
 
 async function expectImageLoaded(image: Locator) {
   await expect(image).toBeVisible();
@@ -77,15 +79,15 @@ async function canRecord(page: Page): Promise<boolean> {
 }
 
 async function recordVoiceNote(page: Page, ms = 1500) {
-  await captureBar(page).getByRole('button', { name: 'Голос' }).click();
-  await expect(captureBar(page).getByRole('status')).toContainText('Запис');
-  await expect(captureBar(page).getByRole('button', { name: 'Зупинити' })).toBeVisible();
+  await page.getByRole('button', { name: 'Записати голос' }).click();
+  await expect(recorder(page).getByRole('status')).toContainText('Запис');
+  await expect(recorder(page).getByRole('button', { name: 'Зупинити' })).toBeVisible();
   await page.waitForTimeout(ms);
-  await captureBar(page).getByRole('button', { name: 'Зупинити' }).click();
-  await expect(captureBar(page).getByText(/Новий запис ·/)).toBeVisible();
+  await recorder(page).getByRole('button', { name: 'Зупинити' }).click();
+  await expect(recorder(page).getByText(/Новий запис ·/)).toBeVisible();
 }
 
-test('one gallery: photos without categories, categorize later, reopen, delete', async ({
+test('capture per category into one gallery, recategorize, rename, reopen, delete', async ({
   page,
   request,
 }, info) => {
@@ -93,23 +95,30 @@ test('one gallery: photos without categories, categorize later, reopen, delete',
   await newProject(page);
   const garmentUrl = page.url();
 
-  // Several photos at once, no category asked.
-  await libraryInput(page).setInputFiles([fixture('front.jpg'), fixture('label.heic')]);
-  const first = gallery(page).getByRole('link', { name: 'Відкрити фото 1' });
-  const second = gallery(page).getByRole('link', { name: 'Відкрити фото 2' });
-  await expectImageLoaded(first.locator('img'));
-  await expectImageLoaded(second.locator('img')); // HEIC shown via server-rendered JPEG
+  // Select category → take photo → change category → take photo.
+  await expect(categoryChips(page).getByRole('radio', { name: 'Перед' })).toBeChecked();
+  await libraryInput(page).setInputFiles(fixture('front.jpg'));
+  const front = gallery(page).getByRole('link', { name: 'Відкрити фото 1: Перед' });
+  await expectImageLoaded(front.locator('img'));
+  await categoryChips(page).getByRole('radio', { name: 'Етикетка' }).check();
+  await libraryInput(page).setInputFiles(fixture('label.heic'));
+  const label = gallery(page).getByRole('link', { name: 'Відкрити фото 2: Етикетка' });
+  await expectImageLoaded(label.locator('img')); // HEIC shown via server-rendered JPEG
 
-  await page.getByText('Назва та нотатки').click();
+  // Rename in the header; text note in the Notes section.
+  await page.getByRole('button', { name: 'Перейменувати' }).click();
   await page.getByLabel('Назва').fill('Джинсова куртка');
-  await page.getByLabel('Нотатки', { exact: true }).fill('Потертості на манжетах');
+  await page.getByLabel('Назва').press('Enter');
+  await expect(page.getByRole('heading', { name: 'Джинсова куртка' })).toBeVisible();
+  await page.locator('summary', { hasText: 'Текстова нотатка' }).click();
+  await page.getByRole('textbox', { name: 'Текстова нотатка' }).fill('Потертості на манжетах');
   await page.getByRole('button', { name: 'Зберегти', exact: true }).click();
   await expect(page.getByRole('status')).toHaveText('Збережено');
 
   // Reopen from the list after a full reload: everything comes back from the server.
   await page.reload();
   await expect(page.getByRole('heading', { name: 'Джинсова куртка' })).toBeVisible();
-  await expect(page.getByRole('textbox', { name: /^Нотатки/ })).toHaveValue(
+  await expect(page.getByRole('textbox', { name: 'Текстова нотатка' })).toHaveValue(
     'Потертості на манжетах',
   );
   await page.getByRole('link', { name: 'Усі проєкти' }).click();
@@ -119,15 +128,9 @@ test('one gallery: photos without categories, categorize later, reopen, delete',
   await card.click();
   await expect(page).toHaveURL(garmentUrl);
 
-  // Photo viewer: details, assign and remove a category, original download. Uploads run in
-  // parallel, so either photo may be the HEIC one.
-  await first.click();
-  await expectImageLoaded(page.getByRole('img', { name: 'Фото речі' }));
-  const heicNumber = (await page.getByText('HEIC', { exact: true }).count()) ? 1 : 2;
-  if (heicNumber === 2) {
-    await page.getByRole('link', { name: 'Назад до проєкту' }).click();
-    await second.click();
-  }
+  // Photo screen: details, change and remove the category, original download.
+  await label.click();
+  await expectImageLoaded(page.getByRole('img', { name: 'Фото: Етикетка' }));
   await expect(page.getByText('HEIC', { exact: true })).toBeVisible();
   await expect(page.getByText('96 × 64 пікс.')).toBeVisible();
   const original = await page.request.get(
@@ -136,16 +139,13 @@ test('one gallery: photos without categories, categorize later, reopen, delete',
   expect(original.status()).toBe(200);
   expect(original.headers()['content-disposition']).toContain('attachment');
   const chips = page.getByRole('group', { name: 'Категорія' });
-  await expect(chips.getByRole('radio', { name: 'Без категорії' })).toBeChecked();
-  await chips.getByRole('radio', { name: 'Етикетка' }).check();
-  await expect(page.getByRole('heading', { name: 'Етикетка' })).toBeVisible();
+  await chips.getByRole('radio', { name: 'Дефекти' }).check();
+  await expect(page.getByRole('heading', { name: 'Дефекти' })).toBeVisible();
   await page.getByRole('link', { name: 'Назад до проєкту' }).click();
-  const labelled = gallery(page).getByRole('link', {
-    name: `Відкрити фото ${heicNumber}: Етикетка`,
-  });
-  await expect(labelled).toBeVisible();
+  const defect = gallery(page).getByRole('link', { name: 'Відкрити фото 2: Дефекти' });
+  await expect(defect).toBeVisible();
 
-  await labelled.click();
+  await defect.click();
   await chips.getByRole('radio', { name: 'Без категорії' }).check();
   await expect(page.getByRole('heading', { name: 'Фото', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Видалити фото' }).click();
@@ -153,6 +153,9 @@ test('one gallery: photos without categories, categorize later, reopen, delete',
   await expect(page).toHaveURL(garmentUrl);
   await expect(gallery(page).getByRole('link')).toHaveCount(1);
 
+  // Deleting the project is a secondary action, still confirmed.
+  await expect(page.getByRole('button', { name: 'Видалити проєкт' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Інші дії' }).click();
   await page.getByRole('button', { name: 'Видалити проєкт' }).click();
   await page.getByRole('button', { name: 'Видалити остаточно' }).click();
   await expect(page.getByRole('heading', { name: 'Мої проєкти' })).toBeVisible();
@@ -185,7 +188,7 @@ test('an interrupted upload fails visibly and succeeds on retry', async ({
   storageDown = false;
   await gallery(page).getByRole('button', { name: 'Повторити' }).click();
   await expectImageLoaded(
-    gallery(page).getByRole('link', { name: 'Відкрити фото 1' }).locator('img'),
+    gallery(page).getByRole('link', { name: 'Відкрити фото 1: Перед' }).locator('img'),
   );
   await expect(gallery(page).getByText('Не завантажено')).toHaveCount(0);
 });
@@ -211,9 +214,9 @@ test('voice notes: record, review, save, play after reload, record another, dele
   test.skip(!(await canRecord(page)), NO_RECORDER);
 
   await recordVoiceNote(page);
-  const review = captureBar(page).getByLabel('Прослухати новий запис');
+  const review = recorder(page).getByLabel('Прослухати новий запис');
   expect(await playableDuration(review)).toBeGreaterThan(0.5);
-  await captureBar(page).getByRole('button', { name: 'Зберегти запис' }).click();
+  await recorder(page).getByRole('button', { name: 'Зберегти запис' }).click();
   const firstNote = voiceSection(page).getByRole('article', { name: 'Нотатка 1' });
   await expect(firstNote).toBeVisible();
 
@@ -228,7 +231,7 @@ test('voice notes: record, review, save, play after reload, record another, dele
   expect(range.status()).toBe(206);
 
   await recordVoiceNote(page, 1000);
-  await captureBar(page).getByRole('button', { name: 'Зберегти запис' }).click();
+  await recorder(page).getByRole('button', { name: 'Зберегти запис' }).click();
   await expect(voiceSection(page).getByRole('article', { name: 'Нотатка 2' })).toBeVisible();
 
   await firstNote.getByRole('button', { name: 'Видалити нотатку' }).click();
@@ -271,7 +274,7 @@ test('an interrupted voice upload can be retried', async ({ page, request }, inf
   });
 
   await recordVoiceNote(page);
-  await captureBar(page).getByRole('button', { name: 'Зберегти запис' }).click();
+  await recorder(page).getByRole('button', { name: 'Зберегти запис' }).click();
   await expect(voiceSection(page).getByText(/Не збережено на сервері/)).toBeVisible({
     timeout: 30_000,
   });
@@ -298,8 +301,8 @@ test.describe('without microphone permission', () => {
         typeof MediaRecorder !== 'undefined' && 'getUserMedia' in (navigator.mediaDevices ?? {}),
     );
     test.skip(!hasRecorder, NO_RECORDER);
-    await captureBar(page).getByRole('button', { name: 'Голос' }).click();
-    await expect(captureBar(page).getByRole('alert')).toContainText('Немає доступу до мікрофона');
+    await page.getByRole('button', { name: 'Записати голос' }).click();
+    await expect(recorder(page).getByRole('alert')).toContainText('Немає доступу до мікрофона');
   });
 });
 
@@ -311,12 +314,12 @@ test("another expert cannot open someone else's project, photos or voice notes",
   await signIn(page, request, createExpert(`owner-${info.project.name}`));
   await newProject(page);
   await libraryInput(page).setInputFiles(fixture('front.jpg'));
-  const photoLink = gallery(page).getByRole('link', { name: 'Відкрити фото 1' });
+  const photoLink = gallery(page).getByRole('link', { name: 'Відкрити фото 1: Перед' });
   await expectImageLoaded(photoLink.locator('img'));
   let audio: string | null = null; // voice part only where the browser can record
   if (await canRecord(page)) {
     await recordVoiceNote(page, 800);
-    await captureBar(page).getByRole('button', { name: 'Зберегти запис' }).click();
+    await recorder(page).getByRole('button', { name: 'Зберегти запис' }).click();
     const note = voiceSection(page).getByRole('article', { name: 'Нотатка 1' });
     await expect(note).toBeVisible();
     audio = await note.getByLabel('Відтворити: Нотатка 1').getAttribute('src');

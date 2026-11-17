@@ -48,3 +48,29 @@ export function StopIcon() {
     </svg>
   );
 }
+
+export function BackIcon() {
+  return (
+    <svg {...base}>
+      <path d="m15 5-7 7 7 7" />
+    </svg>
+  );
+}
+
+export function PencilIcon() {
+  return (
+    <svg {...base}>
+      <path d="M4 20h4L19 9l-4-4L4 16z" />
+    </svg>
+  );
+}
+
+export function MoreIcon() {
+  return (
+    <svg {...base}>
+      <circle cx="5" cy="12" r="1.5" fill="currentColor" />
+      <circle cx="12" cy="12" r="1.5" fill="currentColor" />
+      <circle cx="19" cy="12" r="1.5" fill="currentColor" />
+    </svg>
+  );
+}

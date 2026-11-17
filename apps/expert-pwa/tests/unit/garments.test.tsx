@@ -181,14 +181,16 @@ describe('garment page', () => {
       'href',
       `/garments/${G}/photos/${M}`,
     );
-    expect(within(gallery).getByText('Перед')).toBeInTheDocument(); // chip on the thumbnail
+    expect(within(gallery).getAllByText('Перед')[0]).toBeInTheDocument(); // label on the thumbnail
     expect(within(gallery).getByRole('link', { name: 'Відкрити фото 2' })).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Спинка' })).not.toBeInTheDocument();
 
-    const bar = screen.getByRole('toolbar', { name: 'Фото та голос' });
-    for (const name of ['Зробити фото', 'Вибрати фото', 'Голос']) {
-      expect(within(bar).getByRole('button', { name })).toBeInTheDocument();
+    for (const name of ['Зробити фото', 'Вибрати фото', 'Записати голос']) {
+      expect(screen.getByRole('button', { name })).toBeInTheDocument();
     }
+    const chips = screen.getByRole('group', { name: 'Категорія наступних фото' });
+    expect(within(chips).getByRole('radio', { name: 'Перед' })).toBeChecked();
+    expect(screen.queryByText(/Створено/)).not.toBeInTheDocument(); // no redundant text
 
     expect(within(gallery).getByText('Відхилено')).toBeInTheDocument();
     expect(within(gallery).getByText('Файл пошкоджений або не є зображенням.')).toBeInTheDocument();
@@ -198,7 +200,7 @@ describe('garment page', () => {
     );
   });
 
-  it('uploads chosen photos without asking for a category', async () => {
+  it('gives new photos the selected category until it is changed', async () => {
     usePlatform(fakeMicrophone());
     const calls = mockApi({
       'GET /api/v1/me': me,
@@ -211,22 +213,30 @@ describe('garment page', () => {
     await screen.findByRole('heading', { name: 'Джинсова куртка' });
 
     const library = container.querySelector<HTMLInputElement>('input[type="file"][multiple]')!;
+    const chips = screen.getByRole('group', { name: 'Категорія наступних фото' });
+    const uploads = () => calls.filter((c) => c.path.endsWith('/media/uploads'));
+
     await user.upload(library, [
       new File(['a'], 'IMG_1.HEIC', { type: 'image/heic' }),
       new File(['b'], 'IMG_2.JPG', { type: 'image/jpeg' }),
     ]);
-    await waitFor(() =>
-      expect(calls.filter((c) => c.path.endsWith('/media/uploads'))).toHaveLength(2),
-    );
-    for (const call of calls.filter((c) => c.path.endsWith('/media/uploads'))) {
-      expect(call.body).toMatchObject({
-        category: null,
-        content_type: expect.any(String) as string,
-      });
-    }
+    await waitFor(() => expect(uploads()).toHaveLength(2));
+    await user.click(within(chips).getByRole('radio', { name: 'Дефекти' }));
+    await user.upload(library, new File(['c'], 'IMG_3.JPG', { type: 'image/jpeg' }));
+    await waitFor(() => expect(uploads()).toHaveLength(3));
+    await user.click(within(chips).getByRole('radio', { name: 'Без категорії' }));
+    await user.upload(library, new File(['d'], 'IMG_4.JPG', { type: 'image/jpeg' }));
+    await waitFor(() => expect(uploads()).toHaveLength(4));
+
+    expect(uploads().map((c) => (c.body as { category: string | null }).category)).toEqual([
+      'front',
+      'front',
+      'defect',
+      null,
+    ]);
   });
 
-  it('saves the name and notes', async () => {
+  it('renames the project in place and saves a text note', async () => {
     usePlatform(fakeMicrophone());
     const calls = mockApi({
       'GET /api/v1/me': me,
@@ -237,13 +247,21 @@ describe('garment page', () => {
     const user = userEvent.setup();
     await renderApp(`/garments/${G}`);
 
-    await user.click(await screen.findByText('Назва та нотатки')); // collapsed by default
-    const notes = await screen.findByLabelText('Нотатки');
-    await user.type(notes, '  Потертості на манжетах ');
+    await user.click(await screen.findByRole('button', { name: 'Перейменувати' }));
+    const name = screen.getByLabelText('Назва');
+    expect(name).toHaveFocus();
+    await user.clear(name);
+    await user.type(name, '  Вовняний блейзер {Enter}');
+    expect(await screen.findByRole('heading', { name: 'Вовняний блейзер' })).toBeInTheDocument();
+
+    await user.click(screen.getByText('Текстова нотатка', { selector: 'summary' })); // collapsed
+    await user.type(screen.getByRole('textbox', { name: 'Текстова нотатка' }), ' Потертості ');
     await user.click(screen.getByRole('button', { name: 'Зберегти' }));
     expect(await screen.findByRole('status')).toHaveTextContent('Збережено');
-    const patch = calls.find((c) => c.method === 'PATCH');
-    expect(patch?.body).toEqual({ title: 'Джинсова куртка', notes: 'Потертості на манжетах' });
+    expect(calls.filter((c) => c.method === 'PATCH').map((c) => c.body)).toEqual([
+      { title: 'Вовняний блейзер' },
+      { notes: 'Потертості' },
+    ]);
   });
 
   it('asks for confirmation before deleting the project', async () => {
@@ -257,7 +275,8 @@ describe('garment page', () => {
     const user = userEvent.setup();
     const { router } = await renderApp(`/garments/${G}`);
 
-    await user.click(await screen.findByRole('button', { name: 'Видалити проєкт' }));
+    await user.click(await screen.findByRole('button', { name: 'Інші дії' }));
+    await user.click(screen.getByRole('button', { name: 'Видалити проєкт' }));
     expect(calls.some((c) => c.method === 'DELETE')).toBe(false);
     await user.click(screen.getByRole('button', { name: 'Видалити остаточно' }));
     await waitFor(() => expect(router.state.location.pathname).toBe('/'));
@@ -323,8 +342,8 @@ describe('voice notes', () => {
     const user = userEvent.setup();
     await renderApp(`/garments/${G}`);
 
-    expect(await screen.findByText(/щоб надиктувати спостереження/)).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Голос' }));
+    expect(await screen.findByText('Ще немає голосових нотаток.')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Записати голос' }));
     expect(await screen.findByText('Запис')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Зупинити' }));
 
@@ -344,7 +363,7 @@ describe('voice notes', () => {
     });
     expect(await screen.findByRole('article', { name: 'Нотатка 1' })).toBeInTheDocument();
     // Back to the capture buttons.
-    expect(screen.getByRole('button', { name: 'Голос' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Записати голос' })).toBeInTheDocument();
   });
 
   it('explains a denied microphone permission', async () => {
@@ -356,10 +375,10 @@ describe('voice notes', () => {
     });
     const user = userEvent.setup();
     await renderApp(`/garments/${G}`);
-    await user.click(await screen.findByRole('button', { name: 'Голос' }));
+    await user.click(await screen.findByRole('button', { name: 'Записати голос' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('Немає доступу до мікрофона');
     await user.click(screen.getByRole('button', { name: 'Закрити' }));
-    expect(screen.getByRole('button', { name: 'Голос' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Записати голос' })).toBeInTheDocument();
   });
 
   it('explains that recording needs HTTPS', async () => {
@@ -370,7 +389,7 @@ describe('voice notes', () => {
     });
     const user = userEvent.setup();
     await renderApp(`/garments/${G}`);
-    await user.click(await screen.findByRole('button', { name: 'Голос' }));
+    await user.click(await screen.findByRole('button', { name: 'Записати голос' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('HTTPS');
     expect(screen.queryByRole('button', { name: 'Спробувати знову' })).not.toBeInTheDocument();
   });

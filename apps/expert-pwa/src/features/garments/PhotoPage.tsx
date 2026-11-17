@@ -8,7 +8,7 @@ import { ApiError } from '../../shared/api/errors';
 import { ConfirmAction } from '../../shared/ui/ConfirmAction';
 import { ErrorMessage } from '../../shared/ui/ErrorMessage';
 import { formatBytes, formatDateTime, formatLabel } from '../../shared/ui/format';
-import { MEDIA_CATEGORIES } from './categories';
+import { CategoryChips } from './CategoryChips';
 import { useDeleteMedia, useGarment, useUpdateMediaCategory } from './queries';
 
 export function PhotoPage() {
@@ -57,20 +57,13 @@ function PhotoDetails({ garmentId, media }: { garmentId: string; media: MediaAss
         />
       )}
 
-      <fieldset className="chips" disabled={remove.isPending}>
-        <legend>{t('photo.category')}</legend>
-        {[null, ...MEDIA_CATEGORIES].map((category) => (
-          <label key={category ?? 'none'} className="chip">
-            <input
-              type="radio"
-              name="category"
-              checked={selected === category}
-              onChange={() => choose(category)}
-            />
-            <span>{category ? t(`categories.${category}`) : t('photo.noCategory')}</span>
-          </label>
-        ))}
-      </fieldset>
+      <CategoryChips
+        name="category"
+        legend={t('photo.category')}
+        value={selected}
+        onChange={choose}
+        disabled={remove.isPending}
+      />
       {setCategory.isError && <ErrorMessage error={setCategory.error} />}
 
       <h2>{t('photo.details')}</h2>
