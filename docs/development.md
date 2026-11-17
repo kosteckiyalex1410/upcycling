@@ -64,7 +64,7 @@ uv run python -m app.cli storage-sweep   # purge deleted/stale photos and orphan
 | `make test-web` | Vitest + Testing Library |
 | `make contract-check` | Fails if `packages/api-client` is stale relative to the backend OpenAPI |
 | `make build` | PWA production build + service worker |
-| `make test-e2e` | Playwright: Chromium and WebKit (iPhone 15 emulation) against the real API, DB and Mailpit |
+| `make test-e2e` | Playwright: Chromium and WebKit (iPhone 15 emulation) against the real API, DB and Mailpit; voice tests use the browsers' fake microphones and are skipped (with a reason) where the browser build cannot record — Playwright WebKit on Linux CI, so in CI voice runs in Chromium only |
 | `make docker-smoke` | Builds the backend image; checks non-root user, production config guard, migrations, readiness |
 | `make check` | lint + typecheck + tests + contract-check + build (CI minus e2e/docker) |
 

@@ -57,6 +57,25 @@ async function playableDuration(audio: Locator): Promise<number> {
   );
 }
 
+const NO_RECORDER =
+  'This browser build cannot record audio (Playwright WebKit on Linux CI); voice is covered by ' +
+  'Chromium in CI, WebKit on macOS and the recorder unit tests';
+
+/** Whether this browser build can actually record from a (fake) microphone. */
+async function canRecord(page: Page): Promise<boolean> {
+  return page.evaluate(async () => {
+    if (typeof MediaRecorder === 'undefined' || !('getUserMedia' in (navigator.mediaDevices ?? {})))
+      return false;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach((track) => track.stop());
+      return true;
+    } catch {
+      return false;
+    }
+  });
+}
+
 async function recordVoiceNote(page: Page, ms = 1500) {
   await captureBar(page).getByRole('button', { name: 'Голос' }).click();
   await expect(captureBar(page).getByRole('status')).toContainText('Запис');
@@ -189,6 +208,7 @@ test('voice notes: record, review, save, play after reload, record another, dele
 }, info) => {
   await signIn(page, request, createExpert(`voice-${info.project.name}`));
   await newProject(page);
+  test.skip(!(await canRecord(page)), NO_RECORDER);
 
   await recordVoiceNote(page);
   const review = captureBar(page).getByLabel('Прослухати новий запис');
@@ -223,6 +243,7 @@ test('a recording that was not saved comes back after a reload', async ({
 }, info) => {
   await signIn(page, request, createExpert(`draft-${info.project.name}`));
   await newProject(page);
+  test.skip(!(await canRecord(page)), NO_RECORDER);
   await recordVoiceNote(page);
   await page.waitForTimeout(300); // the local copy is written right after recording stops
 
@@ -241,6 +262,7 @@ test('an interrupted voice upload can be retried', async ({ page, request }, inf
   test.setTimeout(90_000);
   await signIn(page, request, createExpert(`voice-retry-${info.project.name}`));
   await newProject(page);
+  test.skip(!(await canRecord(page)), NO_RECORDER);
   let storageDown = true;
   await page.route('**/uploads/**', async (route) => {
     if (storageDown && route.request().method() === 'PUT')
@@ -271,6 +293,11 @@ test.describe('without microphone permission', () => {
     });
     await signIn(page, request, createExpert(`mic-${info.project.name}`));
     await newProject(page);
+    const hasRecorder = await page.evaluate(
+      () =>
+        typeof MediaRecorder !== 'undefined' && 'getUserMedia' in (navigator.mediaDevices ?? {}),
+    );
+    test.skip(!hasRecorder, NO_RECORDER);
     await captureBar(page).getByRole('button', { name: 'Голос' }).click();
     await expect(captureBar(page).getByRole('alert')).toContainText('Немає доступу до мікрофона');
   });
@@ -286,13 +313,16 @@ test("another expert cannot open someone else's project, photos or voice notes",
   await libraryInput(page).setInputFiles(fixture('front.jpg'));
   const photoLink = gallery(page).getByRole('link', { name: 'Відкрити фото 1' });
   await expectImageLoaded(photoLink.locator('img'));
-  await recordVoiceNote(page, 800);
-  await captureBar(page).getByRole('button', { name: 'Зберегти запис' }).click();
-  const note = voiceSection(page).getByRole('article', { name: 'Нотатка 1' });
-  await expect(note).toBeVisible();
+  let audio: string | null = null; // voice part only where the browser can record
+  if (await canRecord(page)) {
+    await recordVoiceNote(page, 800);
+    await captureBar(page).getByRole('button', { name: 'Зберегти запис' }).click();
+    const note = voiceSection(page).getByRole('article', { name: 'Нотатка 1' });
+    await expect(note).toBeVisible();
+    audio = await note.getByLabel('Відтворити: Нотатка 1').getAttribute('src');
+  }
   const garmentUrl = page.url();
   const thumbnail = (await photoLink.locator('img').getAttribute('src')) ?? '';
-  const audio = (await note.getByLabel('Відтворити: Нотатка 1').getAttribute('src')) ?? '';
 
   const other = await browser.newContext();
   const otherPage = await other.newPage();
@@ -300,10 +330,10 @@ test("another expert cannot open someone else's project, photos or voice notes",
   await otherPage.goto(garmentUrl);
   await expect(otherPage.getByRole('alert')).toContainText('Не знайдено');
   expect((await otherPage.request.get(thumbnail)).status()).toBe(404);
-  expect((await otherPage.request.get(audio)).status()).toBe(404);
+  if (audio) expect((await otherPage.request.get(audio)).status()).toBe(404);
   await other.close();
 
   // Signed-out requests are refused too.
   expect((await request.get(thumbnail)).status()).toBe(401);
-  expect((await request.get(audio)).status()).toBe(401);
+  if (audio) expect((await request.get(audio)).status()).toBe(401);
 });
