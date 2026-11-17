@@ -134,7 +134,8 @@ _CATEGORIES = "'front', 'back', 'detail', 'fabric', 'defect', 'label'"
 class MediaAssetRecord(Base):
     """One original photo of a garment. Declared values come from the client; content
     values are measured by the server from the uploaded bytes and are immutable once
-    `status = 'ready'` (only `category` and deletion fields may change afterwards)."""
+    `status = 'ready'` (only `category` and deletion fields may change afterwards).
+    `category` is optional: photos are taken first and categorized later, if at all."""
 
     __tablename__ = "media_assets"
     __table_args__ = (
@@ -163,7 +164,7 @@ class MediaAssetRecord(Base):
     # Denormalized owner so every media lookup is owner-scoped without a join.
     owner_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"))
     client_upload_id: Mapped[uuid.UUID]
-    category: Mapped[str] = mapped_column(String(16))
+    category: Mapped[str | None] = mapped_column(String(16))
     status: Mapped[str] = mapped_column(String(16))
     error_code: Mapped[str | None] = mapped_column(String(64))
     # Display only; never used to build storage keys.
@@ -180,6 +181,60 @@ class MediaAssetRecord(Base):
     original_key: Mapped[str | None] = mapped_column(String(255))
     preview_key: Mapped[str | None] = mapped_column(String(255))
     thumbnail_key: Mapped[str | None] = mapped_column(String(255))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class VoiceNoteRecord(Base):
+    """One original voice recording of a garment (ADR-0007). Same lifecycle as photos:
+    declared values from the client, content values measured by the server and immutable
+    once `ready`. Transcripts will be separate records referencing this one."""
+
+    __tablename__ = "voice_notes"
+    __table_args__ = (
+        UniqueConstraint("owner_id", "client_upload_id", name="uq_voice_notes_owner_upload"),
+        CheckConstraint("status IN ('pending', 'ready', 'rejected')", name="status_supported"),
+        CheckConstraint(
+            "status <> 'ready' OR (content_type IS NOT NULL AND codec IS NOT NULL "
+            "AND size_bytes IS NOT NULL AND sha256 IS NOT NULL AND duration_ms IS NOT NULL "
+            "AND audio_key IS NOT NULL AND completed_at IS NOT NULL)",
+            name="ready_has_content",
+        ),
+        CheckConstraint("status <> 'rejected' OR error_code IS NOT NULL", name="rejected_has_code"),
+        CheckConstraint(
+            "content_type IS NULL OR content_type IN ('audio/mp4', 'audio/webm')",
+            name="content_type_supported",
+        ),
+        Index(
+            "ix_voice_notes_garment_active",
+            "garment_id",
+            "id",
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+        Index("ix_voice_notes_status_created_at", "status", "created_at"),
+    )
+
+    id: Mapped[uuid.UUID] = _uuid_pk()
+    garment_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("garments.id", ondelete="CASCADE"))
+    owner_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"))
+    client_upload_id: Mapped[uuid.UUID]
+    status: Mapped[str] = mapped_column(String(16))
+    error_code: Mapped[str | None] = mapped_column(String(64))
+    declared_content_type: Mapped[str] = mapped_column(String(64))
+    declared_size_bytes: Mapped[int] = mapped_column(BigInteger)
+    declared_sha256: Mapped[str] = mapped_column(String(64))
+    # Measured by the browser while recording; informational. `duration_ms` is the server's.
+    declared_duration_ms: Mapped[int | None]
+    # When the expert recorded it (device clock), as reported by the client.
+    recorded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    content_type: Mapped[str | None] = mapped_column(String(64))
+    codec: Mapped[str | None] = mapped_column(String(16))
+    size_bytes: Mapped[int | None] = mapped_column(BigInteger)
+    sha256: Mapped[str | None] = mapped_column(String(64))
+    duration_ms: Mapped[int | None]
+    audio_key: Mapped[str | None] = mapped_column(String(255))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

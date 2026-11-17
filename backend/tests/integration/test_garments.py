@@ -81,6 +81,13 @@ async def test_list_is_newest_first_with_cursor_pagination(expert: httpx.AsyncCl
     assert third["next_cursor"] is None
 
 
+async def test_cover_falls_back_to_an_uncategorized_photo(expert: httpx.AsyncClient) -> None:
+    garment = await create_garment(expert)
+    photo = await upload_photo(expert, garment["id"], make_jpeg(), category=None)
+    item = (await expert.get(GARMENTS)).json()["items"][0]
+    assert item["cover_thumbnail_url"] == photo["thumbnail_url"]
+
+
 async def test_list_shows_photo_count_and_front_cover(expert: httpx.AsyncClient) -> None:
     garment = await create_garment(expert)
     await upload_photo(expert, garment["id"], make_jpeg(), category="detail")
@@ -95,7 +102,7 @@ def _all_routes(app: FastAPI) -> list[tuple[str, str]]:
         (method.upper(), re.sub(r"\{[^}]+\}", str(uuid.uuid4()), path))
         for path, operations in app.openapi()["paths"].items()
         for method in operations
-        if path.startswith(("/api/v1/garments", "/api/v1/media"))
+        if path.startswith(("/api/v1/garments", "/api/v1/media", "/api/v1/voice-notes"))
     ]
 
 
@@ -103,7 +110,7 @@ async def test_every_garment_and_media_endpoint_requires_authentication(
     app: FastAPI, client: httpx.AsyncClient
 ) -> None:
     routes = _all_routes(app)
-    assert len(routes) >= 11
+    assert len(routes) >= 15
     for method, path in routes:
         response = await client.request(method, path, json={})
         assert response.status_code == 401, (method, path)

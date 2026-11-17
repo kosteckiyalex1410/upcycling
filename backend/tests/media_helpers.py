@@ -40,7 +40,7 @@ def upload_body(
     data: bytes,
     *,
     content_type: str = "image/jpeg",
-    category: str = "front",
+    category: str | None = "front",
     client_upload_id: uuid.UUID | None = None,
     filename: str | None = "IMG_0001.JPG",
 ) -> dict[str, Any]:
@@ -77,7 +77,7 @@ async def upload_photo(
     data: bytes,
     *,
     content_type: str = "image/jpeg",
-    category: str = "front",
+    category: str | None = "front",
 ) -> dict[str, Any]:
     """Full protocol: register, PUT to storage, complete. Returns the final media JSON."""
     ticket = await client.post(
@@ -94,3 +94,52 @@ async def upload_photo(
     assert done.status_code == 200, done.text
     media: dict[str, Any] = done.json()
     return media
+
+
+# Voice notes ---------------------------------------------------------------------------------
+
+AUDIO = FIXTURES / "audio"
+# Real `MediaRecorder` output: WebKit (same engine as iOS Safari) and Chromium.
+WEBKIT_RECORDING = (AUDIO / "webkit-recording.mp4").read_bytes()
+CHROMIUM_RECORDING = (AUDIO / "chromium-recording.webm").read_bytes()
+
+
+def voice_body(
+    data: bytes,
+    *,
+    content_type: str = "audio/mp4; codecs=mp4a.40.2",
+    client_upload_id: uuid.UUID | None = None,
+    duration_ms: int | None = 2400,
+) -> dict[str, Any]:
+    return {
+        "client_upload_id": str(client_upload_id or uuid.uuid4()),
+        "content_type": content_type,
+        "size_bytes": len(data),
+        "sha256": sha256_hex(data),
+        "duration_ms": duration_ms,
+        "recorded_at": "2026-11-17T10:00:00Z",
+    }
+
+
+async def upload_voice_note(
+    client: httpx.AsyncClient,
+    garment_id: str,
+    data: bytes = WEBKIT_RECORDING,
+    *,
+    content_type: str = "audio/mp4; codecs=mp4a.40.2",
+) -> dict[str, Any]:
+    """Full protocol: register, PUT to storage, complete. Returns the final voice note."""
+    ticket = await client.post(
+        f"/api/v1/garments/{garment_id}/voice-notes/uploads",
+        json=voice_body(data, content_type=content_type),
+    )
+    assert ticket.status_code == 200, ticket.text
+    stored = await put_to_storage(ticket.json()["upload"], data)
+    assert stored.status_code == 200, stored.text
+    done = await client.post(
+        f"/api/v1/garments/{garment_id}/voice-notes/complete",
+        json={"voice_note_id": ticket.json()["voice_note"]["id"]},
+    )
+    assert done.status_code == 200, done.text
+    note: dict[str, Any] = done.json()
+    return note

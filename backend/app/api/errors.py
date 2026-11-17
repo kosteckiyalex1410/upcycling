@@ -10,6 +10,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from app.api.schemas import ErrorBody, ErrorDetail, ErrorResponse
 from app.application.errors import (
     AppError,
+    AudioTooLong,
     IdempotencyConflict,
     InvalidLoginCode,
     InvalidLoginToken,
@@ -22,6 +23,7 @@ from app.application.errors import (
     UnsupportedMediaType,
     UploadIncomplete,
     UploadTooLarge,
+    VoiceNoteLimitReached,
 )
 from app.application.ports import StorageUnavailableError
 from app.infrastructure.logging import request_id_var
@@ -41,6 +43,8 @@ _STATUS_BY_ERROR: dict[type[AppError], int] = {
     TooManyPendingUploads: 409,
     UploadIncomplete: 409,
     StorageUnavailable: 503,
+    VoiceNoteLimitReached: 409,
+    AudioTooLong: 413,
 }
 
 _HTTP_CODES = {404: "not_found", 405: "method_not_allowed"}

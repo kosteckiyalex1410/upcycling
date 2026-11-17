@@ -72,12 +72,12 @@ class GarmentRepository:
         photo_count = (
             select(func.count()).select_from(MediaAssetRecord).where(ready).scalar_subquery()
         )
-        # Cover: the first front photo, otherwise the first ready photo.
+        # Cover: the first front photo, otherwise the first ready photo (categorized or not).
         cover = (
             select(MediaAssetRecord.id)
             .where(ready)
             .order_by(
-                (MediaAssetRecord.category != MediaCategory.FRONT.value).asc(),
+                (func.coalesce(MediaAssetRecord.category, "") != MediaCategory.FRONT.value).asc(),
                 MediaAssetRecord.id.asc(),
             )
             .limit(1)

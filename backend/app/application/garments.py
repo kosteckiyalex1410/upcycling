@@ -47,8 +47,10 @@ from app.domain.media import (
     staging_key,
     thumbnail_key,
 )
+from app.domain.voice_notes import voice_note_keys
 from app.infrastructure.db.garments import GarmentListItem, GarmentRepository, MediaRepository
-from app.infrastructure.db.models import GarmentRecord, MediaAssetRecord
+from app.infrastructure.db.models import GarmentRecord, MediaAssetRecord, VoiceNoteRecord
+from app.infrastructure.db.voice_notes import VoiceNoteRepository
 from app.infrastructure.images import ImageRejected, process_image
 from app.infrastructure.storage import hex_to_b64
 
@@ -67,7 +69,7 @@ class UploadTicket:
 @dataclass(frozen=True, slots=True)
 class UploadRequest:
     client_upload_id: uuid.UUID
-    category: MediaCategory
+    category: MediaCategory | None  # optional: photos may be categorized later
     content_type: str
     size_bytes: int
     sha256: str  # lowercase hex
@@ -100,6 +102,16 @@ async def purge_media(
     await db.commit()
 
 
+async def purge_voice_notes(
+    db: AsyncSession, storage: ObjectStorage, notes: list[VoiceNoteRecord]
+) -> None:
+    """Same order as `purge_media`: objects first, then rows."""
+    for note in notes:
+        await storage.delete_many(voice_note_keys(note.garment_id, note.id))
+    await VoiceNoteRepository(db).delete_rows([note.id for note in notes])
+    await db.commit()
+
+
 class GarmentService:
     def __init__(
         self, db: AsyncSession, settings: Settings, clock: Clock, storage: ObjectStorage
@@ -110,6 +122,7 @@ class GarmentService:
         self._storage = storage
         self._garments = GarmentRepository(db)
         self._media = MediaRepository(db)
+        self._voice_notes = VoiceNoteRepository(db)
 
     # Garments -------------------------------------------------------------------------
 
@@ -144,9 +157,13 @@ class GarmentService:
 
     async def get(
         self, owner_id: uuid.UUID, garment_id: uuid.UUID
-    ) -> tuple[GarmentRecord, list[MediaAssetRecord]]:
+    ) -> tuple[GarmentRecord, list[MediaAssetRecord], list[VoiceNoteRecord]]:
         garment = await self._require_garment(owner_id, garment_id)
-        return garment, await self._media.list_for_garment(owner_id, garment_id)
+        return (
+            garment,
+            await self._media.list_for_garment(owner_id, garment_id),
+            await self._voice_notes.list_for_garment(owner_id, garment_id),
+        )
 
     async def update(
         self, owner_id: uuid.UUID, garment_id: uuid.UUID, changes: dict[str, str | None]
@@ -161,14 +178,18 @@ class GarmentService:
         return garment
 
     async def delete(self, owner_id: uuid.UUID, garment_id: uuid.UUID) -> None:
-        """Permanently delete a garment and all its photos (ADR-0006). Hidden at once;
-        storage cleanup runs now and is retried by `storage-sweep` if it fails."""
+        """Permanently delete a garment, its photos and voice notes (ADR-0006, ADR-0007).
+        Hidden at once; storage cleanup runs now and is retried by `storage-sweep`."""
         garment = await self._require_garment(owner_id, garment_id, for_update=True)
         media = await self._media.list_for_garment(owner_id, garment_id)
-        await self._garments.mark_deleted(garment, now=self._clock())
+        notes = await self._voice_notes.list_for_garment(owner_id, garment_id)
+        now = self._clock()
+        await self._garments.mark_deleted(garment, now=now)
+        await self._voice_notes.mark_deleted_for_garment(garment.id, now=now)
         await self._db.commit()
         try:
             await purge_media(self._db, self._storage, media)
+            await purge_voice_notes(self._db, self._storage, notes)
             await self._garments.delete_row(garment.id)
             await self._db.commit()
         except StorageUnavailableError:
@@ -204,7 +225,7 @@ class GarmentService:
             client_upload_id=request.client_upload_id,
             values={
                 "garment_id": garment.id,
-                "category": request.category.value,
+                "category": request.category.value if request.category else None,
                 "status": MediaStatus.PENDING.value,
                 "original_filename": _clean_text(request.filename),
                 "declared_content_type": request.content_type,
@@ -336,10 +357,11 @@ class GarmentService:
             logger.warning("staging_delete_deferred", extra={"fields": {"media_id": media_id}})
 
     async def set_category(
-        self, owner_id: uuid.UUID, media_id: uuid.UUID, category: MediaCategory
+        self, owner_id: uuid.UUID, media_id: uuid.UUID, category: MediaCategory | None
     ) -> MediaAssetRecord:
+        """Assign, change or (with None) remove a photo's category."""
         media = await self._require_media(owner_id, media_id)
-        media.category = category.value
+        media.category = category.value if category else None
         media.updated_at = self._clock()
         await self._db.commit()
         return media
@@ -375,6 +397,7 @@ class GarmentService:
 @dataclass(slots=True)
 class SweepReport:
     purged_media: int = 0
+    purged_voice_notes: int = 0
     purged_garments: int = 0
     removed_staging_objects: int = 0
     removed_orphan_objects: int = 0
@@ -382,6 +405,7 @@ class SweepReport:
     def as_dict(self) -> dict[str, Any]:
         return {
             "purged_media": self.purged_media,
+            "purged_voice_notes": self.purged_voice_notes,
             "purged_garments": self.purged_garments,
             "removed_staging_objects": self.removed_staging_objects,
             "removed_orphan_objects": self.removed_orphan_objects,
@@ -395,7 +419,8 @@ _BATCH = 100
 
 
 def _media_id_from_key(key: str) -> uuid.UUID | None:
-    # originals/{garment}/{media} or derived/{garment}/{media}/{file}
+    # originals/{garment}/{media}, derived/{garment}/{media}/{file},
+    # or voice-notes/{garment}/{voice_note}
     parts = key.split("/")
     try:
         return uuid.UUID(parts[2])
@@ -404,9 +429,9 @@ def _media_id_from_key(key: str) -> uuid.UUID | None:
 
 
 class StorageSweeper:
-    """Removes deleted photos/garments, stale unfinished uploads, rejected photos, and
-    objects that no row references. Safe to run repeatedly (operator CLI, later the
-    Slice 2 worker)."""
+    """Removes deleted photos, voice notes and garments, stale unfinished uploads, rejected
+    photos and recordings, and objects that no row references. Safe to run repeatedly
+    (operator CLI, later the Slice 2 worker)."""
 
     def __init__(
         self, db: AsyncSession, settings: Settings, clock: Clock, storage: ObjectStorage
@@ -427,6 +452,11 @@ class StorageSweeper:
             await purge_media(self._db, self._storage, batch)
             report.purged_media += len(batch)
 
+        notes_repo = VoiceNoteRepository(self._db)
+        while notes := await notes_repo.list_purgeable(stale_before=stale_before, limit=_BATCH):
+            await purge_voice_notes(self._db, self._storage, notes)
+            report.purged_voice_notes += len(notes)
+
         while garments := await garment_repo.list_deleted(limit=_BATCH):
             for garment in garments:
                 await garment_repo.delete_row(garment.id)
@@ -438,17 +468,22 @@ class StorageSweeper:
                 await self._storage.delete_many([obj.key])
                 report.removed_staging_objects += 1
 
-        candidates = [
-            obj
-            for prefix in ("originals/", "derived/")
-            for obj in await self._storage.list_objects(prefix)
-            if obj.last_modified < now - ORPHAN_GRACE
-        ]
-        ids = {mid for obj in candidates if (mid := _media_id_from_key(obj.key))}
-        known = await media_repo.existing_ids(list(ids))
-        for obj in candidates:
-            media_id = _media_id_from_key(obj.key)
-            if media_id is None or media_id not in known:
-                await self._storage.delete_many([obj.key])
-                report.removed_orphan_objects += 1
+        owners = (
+            (("originals/", "derived/"), media_repo.existing_ids),
+            (("voice-notes/",), notes_repo.existing_ids),
+        )
+        for prefixes, existing_ids in owners:
+            candidates = [
+                obj
+                for prefix in prefixes
+                for obj in await self._storage.list_objects(prefix)
+                if obj.last_modified < now - ORPHAN_GRACE
+            ]
+            ids = {mid for obj in candidates if (mid := _media_id_from_key(obj.key))}
+            known = await existing_ids(list(ids))
+            for obj in candidates:
+                record_id = _media_id_from_key(obj.key)
+                if record_id is None or record_id not in known:
+                    await self._storage.delete_many([obj.key])
+                    report.removed_orphan_objects += 1
         return report

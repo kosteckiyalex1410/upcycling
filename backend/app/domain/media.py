@@ -31,6 +31,8 @@ class RejectionReason(StrEnum):
     IMAGE_TOO_LARGE = "image_too_large"
     UPLOAD_TOO_LARGE = "upload_too_large"
     CHECKSUM_MISMATCH = "checksum_mismatch"
+    INVALID_AUDIO = "invalid_audio"
+    AUDIO_TOO_LONG = "audio_too_long"
 
 
 # Declared types the client may upload. The stored `content_type` is always the type

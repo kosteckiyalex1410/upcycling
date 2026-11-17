@@ -12,12 +12,13 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.api.v1.deps import ClockDep, CurrentUser, DbDep, SettingsDep, StorageDep
+from app.api.v1.voice_note_schemas import VoiceNote
 from app.application.errors import NotFound
 from app.application.garments import GarmentService, UploadRequest, UploadTicket
 from app.application.ports import ObjectMissingError
 from app.domain.media import MediaCategory, MediaStatus
 from app.infrastructure.db.garments import GarmentListItem
-from app.infrastructure.db.models import GarmentRecord, MediaAssetRecord
+from app.infrastructure.db.models import GarmentRecord, MediaAssetRecord, VoiceNoteRecord
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["garments"])
@@ -38,7 +39,7 @@ Notes = Annotated[str | None, Field(max_length=4000)]
 class MediaAsset(BaseModel):
     id: uuid.UUID
     garment_id: uuid.UUID
-    category: MediaCategory
+    category: MediaCategory | None = Field(description="Null until the expert assigns one.")
     status: MediaStatus
     error_code: str | None = Field(description="Set when `status` is `rejected`.")
     original_filename: str | None
@@ -59,7 +60,7 @@ class MediaAsset(BaseModel):
         return cls(
             id=record.id,
             garment_id=record.garment_id,
-            category=MediaCategory(record.category),
+            category=MediaCategory(record.category) if record.category else None,
             status=MediaStatus(record.status),
             error_code=record.error_code,
             original_filename=record.original_filename,
@@ -106,9 +107,17 @@ class Garment(BaseModel):
     created_at: datetime
     updated_at: datetime
     media: list[MediaAsset] = Field(description="Photos including pending and rejected ones.")
+    voice_notes: list[VoiceNote] = Field(
+        description="Voice recordings including pending and rejected ones."
+    )
 
     @classmethod
-    def from_records(cls, garment: GarmentRecord, media: list[MediaAssetRecord]) -> "Garment":
+    def from_records(
+        cls,
+        garment: GarmentRecord,
+        media: list[MediaAssetRecord],
+        voice_notes: list[VoiceNoteRecord],
+    ) -> "Garment":
         return cls(
             id=garment.id,
             title=garment.title,
@@ -116,6 +125,7 @@ class Garment(BaseModel):
             created_at=garment.created_at,
             updated_at=garment.updated_at,
             media=[MediaAsset.from_record(m) for m in media],
+            voice_notes=[VoiceNote.from_record(n) for n in voice_notes],
         )
 
 
@@ -145,7 +155,7 @@ class CreateUploadRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     client_upload_id: uuid.UUID = Field(description="Idempotency key; retries reuse it.")
-    category: MediaCategory
+    category: MediaCategory | None = Field(default=None, description="Optional; set later.")
     content_type: str = Field(max_length=100, description="image/jpeg, image/png, image/heic…")
     size_bytes: int = Field(gt=0)
     sha256: str = Field(pattern=r"^[0-9a-f]{64}$", description="Lowercase hex SHA-256.")
@@ -177,7 +187,7 @@ class CompleteUploadRequest(BaseModel):
 class UpdateMediaRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    category: MediaCategory
+    category: MediaCategory | None = Field(description="`null` removes the category.")
 
 
 def _normalize_content_type(value: str) -> str:
@@ -215,8 +225,8 @@ async def create_garment(
     )
     if not created:
         response.status_code = status.HTTP_200_OK
-    _, media = await service.get(user.id, garment.id)
-    return Garment.from_records(garment, media)
+    _, media, notes = await service.get(user.id, garment.id)
+    return Garment.from_records(garment, media, notes)
 
 
 @router.get("/garments", response_model=GarmentPage)
@@ -248,8 +258,8 @@ async def get_garment(
     clock: ClockDep,
     storage: StorageDep,
 ) -> Garment:
-    garment, media = await _service(db, settings, clock, storage).get(user.id, garment_id)
-    return Garment.from_records(garment, media)
+    garment, media, notes = await _service(db, settings, clock, storage).get(user.id, garment_id)
+    return Garment.from_records(garment, media, notes)
 
 
 @router.patch("/garments/{garment_id}", response_model=Garment)
@@ -265,8 +275,8 @@ async def update_garment(
     service = _service(db, settings, clock, storage)
     changes = {name: getattr(body, name) for name in body.model_fields_set}
     garment = await service.update(user.id, garment_id, changes)
-    _, media = await service.get(user.id, garment.id)
-    return Garment.from_records(garment, media)
+    _, media, notes = await service.get(user.id, garment.id)
+    return Garment.from_records(garment, media, notes)
 
 
 @router.delete("/garments/{garment_id}", status_code=status.HTTP_204_NO_CONTENT)

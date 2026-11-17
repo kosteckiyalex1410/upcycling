@@ -85,6 +85,11 @@ class Settings(BaseSettings):
     image_max_pixels: int = 100_000_000
     garment_max_photos: int = 40
     pending_uploads_per_user: int = 20
+    # Voice notes (ADR-0007). The client stops recording at the duration limit; the server
+    # accepts a small tolerance for encoder padding.
+    voice_note_max_bytes: int = 20 * MIB
+    voice_note_max_seconds: int = 300
+    garment_max_voice_notes: int = 20
     # Unfinished uploads and rejected photos older than this are removed by `storage-sweep`.
     stale_upload_seconds: int = 24 * 3600
 

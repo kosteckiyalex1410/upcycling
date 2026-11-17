@@ -54,9 +54,11 @@ class ObjectStorage(Protocol):
 
     async def put_bytes(self, key: str, data: bytes, *, content_type: str) -> None: ...
 
-    async def open_stream(self, key: str) -> AsyncIterator[bytes]:
-        """Start reading an object (raises `ObjectMissingError` if absent); iterate the
-        result for its bytes."""
+    async def open_stream(
+        self, key: str, *, byte_range: tuple[int, int] | None = None
+    ) -> AsyncIterator[bytes]:
+        """Start reading an object, or the inclusive `byte_range` of it (raises
+        `ObjectMissingError` if absent); iterate the result for its bytes."""
         ...
 
     async def read_bytes(self, key: str) -> bytes: ...

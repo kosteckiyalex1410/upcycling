@@ -3,7 +3,7 @@ from typing import Any
 from fastapi import APIRouter
 
 from app.api.schemas import ErrorResponse
-from app.api.v1 import auth, garments, health, me
+from app.api.v1 import auth, garments, health, me, voice_notes
 
 # Every operation documents the shared error envelope as its default response (ADR-0004).
 _ERROR_RESPONSES: dict[int | str, dict[str, Any]] = {
@@ -15,3 +15,4 @@ router.include_router(health.router)
 router.include_router(auth.router)
 router.include_router(me.router)
 router.include_router(garments.router)
+router.include_router(voice_notes.router)

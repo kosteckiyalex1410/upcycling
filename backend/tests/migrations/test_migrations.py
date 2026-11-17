@@ -4,7 +4,7 @@ import pytest
 from alembic import command
 from alembic.autogenerate import compare_metadata
 from alembic.runtime.migration import MigrationContext
-from sqlalchemy import create_engine, inspect, text
+from sqlalchemy import Connection, create_engine, inspect, text
 from sqlalchemy.engine import make_url
 from sqlalchemy.exc import IntegrityError
 
@@ -91,5 +91,72 @@ def test_media_constraints_protect_ready_and_rejected_states() -> None:
                 conn.execute(insert_media, {**base, **values})
         with engine.begin() as conn:
             conn.execute(insert_media, {**base, "category": "front", "status": "pending"})
+            conn.execute(insert_media, {**base, "category": None, "status": "pending"})
+    finally:
+        engine.dispose()
+
+
+def _seed_garment(conn: Connection) -> tuple[object, object]:
+    user_id = conn.scalar(text("INSERT INTO users (email) VALUES ('v@example.com') RETURNING id"))
+    garment_id = conn.scalar(
+        text(
+            "INSERT INTO garments (owner_id, client_request_id, created_at, updated_at) "
+            "VALUES (:u, gen_random_uuid(), now(), now()) RETURNING id"
+        ),
+        {"u": user_id},
+    )
+    return user_id, garment_id
+
+
+def test_voice_note_constraints_protect_ready_state() -> None:
+    recreate_database(MIGRATIONS_DATABASE_URL)
+    command.upgrade(alembic_config(MIGRATIONS_DATABASE_URL), "head")
+    engine = create_engine(MIGRATIONS_DATABASE_URL)
+    insert_note = text(
+        "INSERT INTO voice_notes (garment_id, owner_id, client_upload_id, status, error_code, "
+        "declared_content_type, declared_size_bytes, declared_sha256, content_type, "
+        "created_at, updated_at) VALUES (:g, :u, gen_random_uuid(), :status, :error, "
+        "'audio/mp4', 1, :sha, :content_type, now(), now())"
+    )
+    try:
+        with engine.begin() as conn:
+            user_id, garment_id = _seed_garment(conn)
+        base = {"g": garment_id, "u": user_id, "sha": "0" * 64, "error": None}
+        for values in (
+            {"status": "ready", "content_type": "audio/mp4"},  # no verified content
+            {"status": "rejected", "content_type": None},  # no reason
+            {"status": "pending", "content_type": "audio/wav"},
+        ):
+            with pytest.raises(IntegrityError), engine.begin() as conn:
+                conn.execute(insert_note, {**base, **values})
+        with engine.begin() as conn:
+            conn.execute(insert_note, {**base, "status": "pending", "content_type": None})
+    finally:
+        engine.dispose()
+
+
+def test_downgrade_refuses_to_drop_voice_notes_or_invent_photo_categories() -> None:
+    recreate_database(MIGRATIONS_DATABASE_URL)
+    config = alembic_config(MIGRATIONS_DATABASE_URL)
+    command.upgrade(config, "head")
+    engine = create_engine(MIGRATIONS_DATABASE_URL)
+    try:
+        with engine.begin() as conn:
+            user_id, garment_id = _seed_garment(conn)
+            conn.execute(
+                text(
+                    "INSERT INTO media_assets (garment_id, owner_id, client_upload_id, status, "
+                    "declared_content_type, declared_size_bytes, declared_sha256, created_at, "
+                    "updated_at) VALUES (:g, :u, gen_random_uuid(), 'pending', 'image/jpeg', 1, "
+                    ":sha, now(), now())"
+                ),
+                {"g": garment_id, "u": user_id, "sha": "0" * 64},
+            )
+        with pytest.raises(RuntimeError, match="Refusing to downgrade"):
+            command.downgrade(config, "0002")
+        with engine.begin() as conn:
+            conn.execute(text("UPDATE media_assets SET category = 'front'"))
+        command.downgrade(config, "0002")
+        assert "voice_notes" not in _tables(MIGRATIONS_DATABASE_URL)
     finally:
         engine.dispose()

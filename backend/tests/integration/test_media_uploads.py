@@ -102,6 +102,33 @@ async def test_jpeg_upload_preserves_original_and_strips_metadata_from_previews(
     assert original_key(uuid.UUID(garment["id"]), uuid.UUID(media["id"])) in await keys(app)
 
 
+async def test_photos_need_no_category_and_can_be_categorized_later(
+    expert: httpx.AsyncClient, garment: dict[str, Any]
+) -> None:
+    body = upload_body(make_jpeg())
+    del body["category"]  # the camera-first flow sends none
+    ticket = (await expert.post(uploads_url(garment), json=body)).json()
+    await put_to_storage(ticket["upload"], make_jpeg())
+    photo = (
+        await expert.post(complete_url(garment), json={"media_id": ticket["media"]["id"]})
+    ).json()
+    assert (photo["status"], photo["category"]) == ("ready", None)
+    second = await upload_photo(expert, garment["id"], make_jpeg((9, 9)), category=None)
+
+    url = f"/api/v1/media/{photo['id']}"
+    assert (await expert.patch(url, json={"category": "label"})).json()["category"] == "label"
+    assert (await expert.patch(url, json={"category": "defect"})).json()["category"] == "defect"
+    assert (await expert.patch(url, json={"category": None})).json()["category"] is None
+    assert (await expert.patch(url, json={})).status_code == 422  # explicit null required
+    assert (await expert.patch(url, json={"category": "sleeve"})).status_code == 422
+
+    detail = (await expert.get(f"/api/v1/garments/{garment['id']}")).json()
+    assert [(m["id"], m["category"]) for m in detail["media"]] == [
+        (photo["id"], None),
+        (second["id"], None),
+    ]
+
+
 async def test_heic_and_png_are_accepted(
     expert: httpx.AsyncClient, garment: dict[str, Any]
 ) -> None:

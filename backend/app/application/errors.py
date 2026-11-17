@@ -52,12 +52,12 @@ class IdempotencyConflict(AppError):
 
 class UnsupportedMediaType(AppError):
     code = "unsupported_media_type"
-    message = "Only JPEG, PNG and HEIC/HEIF photos are supported."
+    message = "This file type is not supported."
 
 
 class UploadTooLarge(AppError):
     code = "upload_too_large"
-    message = "The photo exceeds the maximum upload size."
+    message = "The file exceeds the maximum upload size."
 
 
 class MediaLimitReached(AppError):
@@ -72,9 +72,19 @@ class TooManyPendingUploads(AppError):
 
 class UploadIncomplete(AppError):
     code = "upload_incomplete"
-    message = "The photo has not been uploaded yet."
+    message = "The file has not been uploaded yet."
 
 
 class StorageUnavailable(AppError):
     code = "storage_unavailable"
-    message = "Photo storage is temporarily unavailable. Try again."
+    message = "File storage is temporarily unavailable. Try again."
+
+
+class VoiceNoteLimitReached(AppError):
+    code = "voice_note_limit_reached"
+    message = "This garment already has the maximum number of voice notes."
+
+
+class AudioTooLong(AppError):
+    code = "audio_too_long"
+    message = "The recording is longer than allowed."

@@ -24,6 +24,7 @@ from app.config import Settings
 if TYPE_CHECKING:
     from botocore.response import StreamingBody
     from types_boto3_s3.client import S3Client
+    from types_boto3_s3.type_defs import GetObjectOutputTypeDef
 
 _CHUNK = 1024 * 1024
 _NOT_FOUND = {"404", "NoSuchKey", "NotFound"}
@@ -108,11 +109,19 @@ class S3ObjectStorage:
             key=key, size_bytes=response["ContentLength"], last_modified=response["LastModified"]
         )
 
-    async def _get_body(self, key: str) -> "StreamingBody":
-        try:
-            response = await asyncio.to_thread(
-                self._client.get_object, Bucket=self._bucket, Key=key
+    async def _get_body(
+        self, key: str, byte_range: tuple[int, int] | None = None
+    ) -> "StreamingBody":
+        def get() -> "GetObjectOutputTypeDef":
+            if byte_range is None:
+                return self._client.get_object(Bucket=self._bucket, Key=key)
+            start, end = byte_range
+            return self._client.get_object(
+                Bucket=self._bucket, Key=key, Range=f"bytes={start}-{end}"
             )
+
+        try:
+            response = await asyncio.to_thread(get)
         except ClientError as exc:
             if _is_not_found(exc):
                 raise ObjectMissingError(key) from exc
@@ -137,8 +146,10 @@ class S3ObjectStorage:
             body.close()
         return written
 
-    async def open_stream(self, key: str) -> AsyncIterator[bytes]:
-        body = await self._get_body(key)
+    async def open_stream(
+        self, key: str, *, byte_range: tuple[int, int] | None = None
+    ) -> AsyncIterator[bytes]:
+        body = await self._get_body(key, byte_range)
 
         async def chunks() -> AsyncIterator[bytes]:
             try:
